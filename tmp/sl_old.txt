@@ -1,0 +1,2 @@
+## Session Log
+- **2026-05-18** — **Project renamed BetSimV2 → GridV2 + cyan token rename + TODO.md housekeeping.**

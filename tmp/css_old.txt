@@ -1,0 +1,4 @@
+  .mob-prop-btn .mob-prop-line { @apply font-display font-semibold text-[12px]; }
+  .mob-prop-btn .mob-prop-vig  { @apply text-[10px] text-bet-text-sm; }
+  .mob-prop-btn.sel .mob-prop-vig { @apply text-[#aee]; }
+}

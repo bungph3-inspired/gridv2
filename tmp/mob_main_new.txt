@@ -1,0 +1,3 @@
+  selectMobileTeaserVariant,
+  computeRVNetMob
+});

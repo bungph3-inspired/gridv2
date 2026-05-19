@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#172d33">
+  <meta name="description" content="GridV2 Mobile — entertainment-only practice board. Virtual currency, no real money.">
+  <meta property="og:title" content="GridV2 Mobile · Entertainment Only">
+  <meta property="og:description" content="Practice betting with virtual currency on mobile. Spreads, moneylines, totals, parlays, teasers, if bets. No real money.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>GridV2 Mobile · Entertainment Only</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/mobile-Btrg9gXo.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/api-e2IP5MWo.js">
+  <link rel="stylesheet" crossorigin href="/assets/api-BZucgPJe.css">
+</head>
+<body class="font-body">
+
+<div id="app" class="flex flex-col h-full max-w-[480px] mx-auto bg-bet-bg">
+
+  <!-- DISCLAIMER -->
+  <div class="disc text-[10px] py-1 px-2 leading-tight"><b>⚠ ENTERTAINMENT ONLY</b> — Virtual currency, no real money.</div>
+
+  <!-- HEADER -->
+  <header class="mob-header">
+    <button class="mob-menu-btn" onclick="openDrawer()" aria-label="Menu">☰</button>
+    <div class="mob-logo">Bet<span>Sim</span></div>
+    <div class="mob-hbadge">MOBILE</div>
+    <div class="mob-hright">
+      <label class="mob-hlabel">Balance</label>
+      <div class="mob-hval" id="bal-disp">$1,000.00</div>
+    </div>
+  </header>
+
+  <!-- API STATUS BAR -->
+  <div class="mob-api-bar">
+    <div class="ldot off" id="ldot"></div>
+    <span id="api-status">No API key — tap ☰ to add</span>
+    <span class="auto-timer" id="auto-timer"></span>
+    <span class="qtxt ml-auto" id="qtxt"></span>
+  </div>
+
+  <!-- SPORT TABS (horizontal scroll) -->
+  <div class="mob-stabs" id="mob-stabs">
+    <button type="button" class="mob-stab active" data-sport="NBA" onclick="setSport('NBA')">NBA</button>
+    <button type="button" class="mob-stab" data-sport="MLB" onclick="setSport('MLB')">MLB</button>
+    <button type="button" class="mob-stab" data-sport="NHL" onclick="setSport('NHL')">NHL</button>
+    <button type="button" class="mob-stab" data-sport="NFL" onclick="setSport('NFL')">NFL</button>
+    <button type="button" class="mob-stab" data-sport="NCAAB" onclick="setSport('NCAAB')">NCAAB</button>
+    <button type="button" class="mob-stab" data-sport="NCAAF" onclick="setSport('NCAAF')">NCAAF</button>
+  </div>
+
+  <!-- LEAGUE / BOARD HEADER -->
+  <div class="mob-bsub">
+    <button class="mob-upd-btn" onclick="manualRefresh()" aria-label="Refresh">↺</button>
+    <span id="board-title">NBA — Playoffs</span>
+    <span class="lupd ml-auto text-[10px] text-bet-text-xs" id="lupd"></span>
+  </div>
+
+  <!-- ODDS BOARD -->
+  <div class="mob-board flex-1 overflow-y-auto" id="board"></div>
+
+  <!-- CONTINUE BAR (floats above bottom nav when selections exist) -->
+  <div class="mob-continue-bar hidden" id="mob-continue-bar">
+    <button class="mob-continue-btn" id="mob-continue-btn" onclick="openReview()">
+      <span id="mob-continue-cnt">0</span> CONTINUE →
+    </button>
+  </div>
+
+  <!-- BOTTOM MODE NAV -->
+  <nav class="mob-nav">
+    <button class="mob-nbtn active" id="nav-straight" onclick="setMode('straight')">
+      <span class="mob-nico">＄</span><span class="mob-nlbl">Straight</span>
+    </button>
+    <button class="mob-nbtn" id="nav-parlay" onclick="setMode('parlay')">
+      <span class="mob-nico">⛓</span><span class="mob-nlbl">Parlay</span>
+      <span class="mob-nbadge hidden" id="par-badge">0</span>
+    </button>
+    <button class="mob-nbtn" id="nav-teaser" onclick="setMode('teaser')">
+      <span class="mob-nico">⇆</span><span class="mob-nlbl">Teaser</span>
+      <span class="mob-nbadge hidden" id="tea-badge">0</span>
+    </button>
+    <button class="mob-nbtn" id="nav-reverse" onclick="setMode('reverse')">
+      <span class="mob-nico">⇄</span><span class="mob-nlbl">Reverse</span>
+      <span class="mob-nbadge hidden" id="rv-badge">0</span>
+    </button>
+    <button class="mob-nbtn" id="nav-ifbet" onclick="setMode('ifbet')">
+      <span class="mob-nico">↪</span><span class="mob-nlbl">If Bet</span>
+      <span class="mob-nbadge hidden" id="if-badge">0</span>
+    </button>
+    <button class="mob-nbtn" id="nav-bets" onclick="openBets()">
+      <span class="mob-nico">📋</span><span class="mob-nlbl">My Bets</span>
+      <span class="mob-nbadge hidden" id="bets-cnt">0</span>
+    </button>
+  </nav>
+
+</div><!-- /app -->
+
+<!-- ─── DRAWER (settings) ──────────────────────────────────────────────── -->
+<div class="mob-doverlay" id="doverlay" onclick="closeDrawer()"></div>
+<aside class="mob-drawer" id="drawer">
+  <div class="mob-dhdr">⚙ Settings <button onclick="closeDrawer()" class="ml-auto bg-transparent border-none text-white text-xl cursor-pointer" aria-label="Close">✕</button></div>
+  <div class="mob-dsec">
+    <label for="api-key-inp">API Key (OddsPapi)</label>
+    <input type="password" id="api-key-inp" placeholder="Paste your key…" autocomplete="off">
+    <button class="mob-dsave mt-2" onclick="saveApiKey()">Save & Connect</button>
+  </div>
+  <div class="mob-dsec">
+    <label for="mock-cbx">Mock Mode</label>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" id="mock-cbx" onchange="toggleMockMode()" class="w-4 h-4">
+      <span id="mock-status" class="text-[12px]">Use captured fixture data</span>
+    </div>
+  </div>
+  <div class="mob-dsec">
+    <label for="alt-cbx">Alt Lines</label>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" id="alt-cbx" onchange="toggleAltLines()" class="w-4 h-4">
+      <span id="alt-status" class="text-[12px]">Show alt-line chevrons</span>
+    </div>
+  </div>
+  <div class="mob-dsec">
+    <label for="book-sel">Preferred Bookmaker</label>
+    <select id="book-sel" onchange="saveBook()">
+      <option value="pinnacle">Pinnacle</option>
+      <option value="draftkings">DraftKings</option>
+      <option value="fanduel">FanDuel</option>
+      <option value="betmgm">BetMGM</option>
+      <option value="caesars">Caesars</option>
+    </select>
+  </div>
+  <div class="mob-dsec">
+    <span class="lbl">Virtual Balance</span>
+    <div class="font-display text-[22px] font-bold text-bet-green mb-1.5" id="set-bal">$1,000.00</div>
+    <button class="mob-dsave" onclick="resetBalance()">↺ Reset to $1,000</button>
+  </div>
+</aside>
+
+<!-- ─── BOTTOM SHEET (alt-lines + future prop alts) ────────────────────── -->
+<div class="mob-sheet-backdrop" id="mob-sheet-backdrop" onclick="closeAltSheet()"></div>
+<div class="mob-sheet" id="mob-sheet">
+  <div class="mob-sheet-handle"></div>
+  <div class="mob-sheet-hdr" id="mob-sheet-hdr">Alt Lines</div>
+  <div class="mob-sheet-body" id="mob-sheet-body"></div>
+</div>
+
+<!-- ─── FULL-SCREEN OVERLAY: MY BETS ───────────────────────────────────── -->
+<div class="mob-overlay" id="mob-bets-overlay">
+  <div class="mob-overlay-hdr">
+    <button class="mob-overlay-back" onclick="closeBets()" aria-label="Close">←</button>
+    <span class="mob-overlay-title">My Bets</span>
+  </div>
+  <div class="mob-overlay-body" id="mob-bets-body"></div>
+</div>
+
+<!-- ─── FULL-SCREEN OVERLAY: REVIEW (parlay/teaser/ifbet/straight) ─────── -->
+<div class="mob-overlay" id="mob-review-overlay">
+  <div class="mob-overlay-hdr">
+    <button class="mob-overlay-back" onclick="closeReview()" aria-label="Close">←</button>
+    <span class="mob-overlay-title" id="mob-review-title">Review</span>
+  </div>
+  <div class="mob-overlay-body" id="mob-review-body"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- Mock data fixture -->
+<script src="/mock_data.js" onerror="window.__noMockData=true"></script>
+
+<!-- Mobile entry -->
+</body>
+</html>

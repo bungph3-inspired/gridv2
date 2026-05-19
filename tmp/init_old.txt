@@ -1,0 +1,6 @@
+function init() {
+  updateBalDisp();
+  updateBetsBtn();
+  renderSidebar();
+  initAgent();
+  setMode("straight");

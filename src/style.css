@@ -1,0 +1,1649 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   GridV2 — Tailwind v4 stylesheet (formerly BetSimV2)
+   ════════════════════════════════════════════════════════════════════════════
+   This is the centerpiece of the v4 migration. Read top-to-bottom to learn
+   the new model:
+
+   1. @import "tailwindcss"            — pulls in the v4 engine + utilities
+   2. @theme { --tokens: ... }         — defines design tokens that auto-
+                                         generate utility classes
+   3. @layer base { ... }              — base element styles (html, body)
+   4. @layer components { ... }        — repeated component patterns via
+                                         @apply (mirrors the legacy v1 .gblock,
+                                         .obtn, .pbtn, etc.)
+
+   THE BIG SHIFT FROM V3:
+   - No tailwind.config.js. The whole config lives here in CSS.
+   - No @tailwind base/components/utilities directives. Just @import.
+   - No `content: []` array. Vite scans your HTML/JS automatically.
+   - Every CSS variable in @theme generates a matching utility class:
+       --color-bet-darker  →  bg-bet-darker, text-bet-darker, border-bet-darker
+       --font-display      →  font-display
+       --spacing-board     →  p-board, m-board, gap-board, w-board, h-board
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+
+/* Explicit content scanning — Tailwind v4 auto-detects JS imports but doesn't
+   always pick up sibling HTML entries in a multi-page Vite build. Adding
+   @source lines guarantees utilities used in both index.html and
+   index_mobile.html get generated. */
+@source "../index.html";
+@source "../index_mobile.html";
+@source "../agent.html";
+@source "./**/*.js";
+
+/* ────────────────────────────────────────────────────────────────────────────
+   @theme — GridV2 design tokens
+   ────────────────────────────────────────────────────────────────────────────
+   This block IS the design system. Every token here generates utility
+   classes. Naming matters: a token named `--color-teal-darker` becomes the
+   utility `bg-teal-darker`. We prefix with `bet-` so utilities clearly belong
+   to the project's design language and don't collide with Tailwind's stock palette.
+
+   Compare line-for-line to the legacy v1 :root block — same values, just renamed
+   so they generate utilities. Identical visual output, dramatically less
+   custom CSS in the rest of the file.
+   ──────────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* ── colors ──
+     Identity palette: cool slate + cyan accent (committed 2026-05-14, after a
+     mono-cyan A/B against the original teal+orange chrome). Page bg, panel,
+     ticket palette, and functional green/red are unchanged — only the 7
+     identity tokens shifted hue. Two semantic tokens below (--color-bet-time,
+     --color-bet-emphasis) handle the kickoff-time and playoff-badge chips,
+     which previously aliased bg-bet-brand / bg-bet-darker but read muddy in
+     this palette. */
+  --color-bet-brand: #2a5a78;          /* primary brand surface — cool steel */
+  --color-bet-dk: #1e3a52;            /* darker brand variant */
+  --color-bet-lt: #3a708a;            /* lighter brand variant */
+  --color-bet-darker: #0f172a;        /* header / modal chrome — slate-900 */
+  --color-bet-accent: #22d3ee;        /* accent CTA / live highlights — cyan-400 */
+  --color-bet-accent-dk: #0891b2;     /* accent hover — cyan-600 */
+
+  /* Semantic chip tokens — distinct from the bet-brand/bet-darker surfaces so
+     small chips (kickoff time, playoff badge) carry cyan identity instead of
+     reading near-black at chip-scale. */
+  --color-bet-time:     #0e7490;      /* kickoff-time chips — cyan-700 */
+  --color-bet-emphasis: #155e75;      /* playoff/finals badges — cyan-800 */
+
+  --color-bet-bg: #c9d1d9;            /* page background */
+  --color-bet-panel: #eef1f3;         /* sidebar / panel surface */
+  --color-bet-alt: #e8ecef;           /* alt rows, ginfo strip */
+  --color-bet-border: #b8c4c8;
+
+  --color-bet-text: #1a2428;
+  --color-bet-text-sm: #4a5a60;
+  --color-bet-text-xs: #7a8a90;
+
+  --color-bet-green: #2a7a3a;         /* line up / win states */
+  --color-bet-red: #c0392b;           /* line down / loss states */
+  --color-bet-sel-dk: #142536;        /* selected parlay/teaser cell — cool slate */
+  --color-bet-pulse: #6de098;         /* PULSE LIVE indicator dot */
+
+  /* ── betslip card palette (added in selection-rail redesign) ──
+     Soft paper-tone so the rail feels like a physical betting ticket,
+     not a flat grey panel. The "ticket" tones are warmer than the page
+     bg to suggest a distinct surface. */
+  --color-bet-ticket: #f5f1ea;        /* rail bg — warm off-white paper */
+  --color-bet-ticket-dk: #e8e0cf;     /* perforated-edge / ticket border */
+  --color-bet-card: #ffffff;          /* each leg card */
+  --color-bet-card-hover: #fdfcf9;    /* hovered leg card */
+
+  /* ── typography ── */
+  --font-display: 'Barlow Condensed', sans-serif;   /* headings, UI chrome */
+  --font-body: 'Barlow', sans-serif;                /* body copy */
+
+  /* ── layout dimensions (named tokens generate w-/h-/p-/etc. utilities) ── */
+  --spacing-sidebar: 210px;           /* w-sidebar */
+  --spacing-rail: 210px;              /* w-rail (parlay selections rail) */
+  --spacing-hdr: 42px;                /* h-hdr (top header height) */
+
+  /* ── shadow tokens for card elevation ──
+     Tailwind v4 generates `shadow-*` utilities from `--shadow-*` keys.
+     Used for the betslip leg cards — subtle on rest, slightly stronger
+     on hover, so cards feel "liftable" but never noisy. */
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.08);
+  --shadow-receipt: inset 0 1px 0 rgba(0,0,0,0.04), 0 -1px 0 var(--color-bet-ticket-dk);
+
+  /* ── animation keyframes (v4 reads these via animate-* utilities) ── */
+  --animate-pulse-bet: pulse-bet 1.4s ease-in-out infinite;
+  --animate-spin-bet: spin-bet 0.8s linear infinite;
+  --animate-fade-up: fade-up 1.8s ease-out forwards;
+  --animate-fade-dn: fade-dn 1.8s ease-out forwards;
+
+  @keyframes pulse-bet {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.8); }
+  }
+  @keyframes spin-bet { to { transform: rotate(360deg); } }
+  @keyframes fade-up {
+    0%   { background: #d4edda; }
+    100% { background: #fff; }
+  }
+  @keyframes fade-dn {
+    0%   { background: #f8d7da; }
+    100% { background: #fff; }
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   @layer base — element-level resets / defaults
+   ──────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-body);
+    background: var(--color-bet-bg);
+    color: var(--color-bet-text);
+    font-size: 13px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   @layer components — reusable GridV2 patterns
+   ════════════════════════════════════════════════════════════════════════════
+   Why @apply instead of writing utilities inline in HTML?
+
+   - Repeated patterns (odds buttons, game blocks, modal overlays) appear in
+     many places. Inlining them produces 200-character class strings that are
+     unreadable and impossible to update consistently.
+   - When the design changes (e.g., tighter button padding), you update one
+     @apply rule, not 80 HTML attributes.
+   - Naming conveys *intent*: `.obtn` says "odds button" — `flex items-center
+     justify-between gap-1 h-[26px] min-w-[78px] px-2 py-[3px] bg-white border
+     border-bet-border rounded text-bet-text font-body text-[11px] cursor-
+     pointer transition-all hover:border-bet-brand hover:text-bet-brand` does
+     not.
+
+   Rule of thumb (and `frontend-design`'s discipline applied to v4):
+   - One-off layout (sidebar gap, header alignment) → utilities inline in HTML
+   - Repeated "I am a thing" components (.obtn, .gblock, .gbadge) → @apply here
+   ──────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  /* ── disclaimer bar ── */
+  .disc {
+    @apply bg-[#1a2428] text-[#5a7a80] text-center text-[9px] py-[2px] tracking-[0.4px] flex-shrink-0;
+  }
+  .disc b { @apply text-bet-accent; }
+
+  /* ── header ── */
+  .bet-header {
+    @apply bg-bet-darker h-hdr flex items-center px-3 gap-[10px] flex-shrink-0 border-b-2 border-bet-accent z-30;
+  }
+  .logo {
+    @apply font-display text-[20px] font-bold tracking-[1px] text-white uppercase;
+  }
+  .logo span { @apply text-bet-accent; }
+  .hbadge {
+    @apply bg-bet-accent text-white text-[8px] font-bold px-[5px] py-[2px] rounded-[3px] tracking-[0.8px] uppercase;
+  }
+  /* Header chrome button (settings / my bets). Was a 14-utility chain duplicated in HTML. */
+  .hbtn {
+    @apply bg-transparent border border-white/30 text-white font-display text-xs font-semibold px-2.5 py-1 rounded-[3px] cursor-pointer uppercase tracking-[0.5px] hover:bg-white/10 transition-colors;
+  }
+  .hright {
+    @apply ml-auto flex items-center gap-5;
+  }
+  .hstat { @apply text-right leading-[1.2]; }
+  .hstat label {
+    @apply text-[9px] text-[#aac] uppercase tracking-[0.5px] block;
+  }
+  .hstat .hval {
+    @apply font-display text-base font-bold text-white;
+  }
+  .hstat .hval.money { @apply text-[#6de098]; }
+  .hstat .hval.pend  { @apply text-[#f5c842]; }
+
+  .hapi {
+    @apply text-[10px] text-[#7ab] flex items-center gap-1.5 border-l border-white/10 pl-4;
+  }
+  .ldot {
+    @apply w-1.5 h-1.5 rounded-full bg-[#6de098] flex-shrink-0;
+  }
+  .ldot.live { animation: var(--animate-pulse-bet); }
+  .ldot.off  { @apply bg-bet-text-xs; }
+
+  /* ── bet-type tabs ── */
+  .bet-tabs {
+    @apply bg-bet-brand flex items-stretch h-9 flex-shrink-0 border-b border-bet-dk;
+  }
+  .btab {
+    /* native <button> reset: kill UA bg + side borders, keep right + bottom borders below */
+    @apply font-display text-sm font-semibold tracking-[1px] uppercase text-white/55 px-7 flex items-center cursor-pointer bg-transparent border-0 border-r border-white/10 border-b-2 border-b-transparent transition-all select-none relative;
+  }
+  .btab:hover { @apply bg-white/5; }
+  .btab.active {
+    @apply bg-black/20 text-white border-b-bet-accent;
+  }
+  .btab.disabled {
+    @apply text-white/25 cursor-default;
+  }
+  .btab-badge {
+    @apply bg-bet-accent text-white text-[9px] font-bold rounded-lg px-[5px] py-px ml-1.5 align-middle;
+  }
+  /* Hide pattern: project-wide standard is Tailwind's `.hidden` utility. The previous custom
+     `.h` marker class was retired 2026-05-13 — all toggles now use `.hidden` directly. */
+
+  .continue-btn {
+    @apply ml-auto bg-bet-accent text-white font-display text-sm font-bold tracking-[0.8px] px-[22px] flex items-center gap-1.5 cursor-pointer border-none transition-colors uppercase;
+  }
+  .continue-btn:hover { @apply bg-bet-accent-dk; }
+  .continue-badge, .brd-continue-badge {
+    @apply bg-black/20 rounded-[10px] px-[7px] py-px text-[11px] font-bold;
+  }
+  .brd-continue-badge { @apply px-1.5; }
+
+  /* ── three-panel main ── */
+  .main { @apply flex flex-1 overflow-hidden; }
+
+  /* ── sidebar ── */
+  .sidebar {
+    @apply w-sidebar flex-shrink-0 bg-bet-panel border-r border-bet-border overflow-y-auto flex flex-col;
+  }
+  .sb-live-hdr {
+    @apply bg-bet-brand text-white font-display text-xs font-semibold tracking-[1.5px] px-3 py-1.5 flex items-center gap-[7px] uppercase flex-shrink-0;
+  }
+  .sb-sel {
+    @apply bg-white border border-bet-border rounded-[3px] mx-2 my-[5px] px-2 py-1 font-body text-xs text-bet-text cursor-pointer w-[calc(100%-16px)] appearance-none pr-[22px];
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+  }
+  .lg-group { @apply border-b border-bet-border; }
+  .lg-hdr {
+    @apply bg-bet-dk text-white font-display text-xs font-semibold px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer select-none min-h-8;
+  }
+  .lg-hdr .chev {
+    @apply ml-auto text-[10px] transition-transform;
+  }
+  /* League sport icon — inline SVG injected by leagueIconHtml(). Inherits
+     currentColor from .lg-hdr (white) / .mob-stab (active = orange, inactive
+     = muted text). Slight opacity on inactive states so the icon recedes. */
+  .lg-icon {
+    @apply flex-shrink-0;
+    color: currentColor;
+  }
+  .lg-hdr .lg-icon { opacity: 0.9; }
+  .lg-hdr-label { @apply font-display; }
+  .lg-hdr.collapsed .chev { @apply -rotate-90; }
+  .lg-items { @apply flex flex-col; }
+  .lg-items.hidden { @apply hidden; }
+  .lg-item {
+    @apply flex items-center gap-[7px] px-2.5 py-[5px] pl-[14px] cursor-pointer text-xs text-bet-text-sm border-b border-black/5 min-h-[30px] transition-colors;
+  }
+  .lg-item:hover { @apply bg-bet-brand/10; }
+  .lg-item.active { @apply text-bet-brand font-semibold bg-bet-brand/10; }
+  .lg-item input[type=checkbox] { @apply cursor-pointer; accent-color: var(--color-bet-brand); }
+  .lg-sub { @apply pl-[26px] text-[11px]; }
+
+  /* ── center board ── */
+  .center {
+    @apply flex-1 overflow-y-auto flex flex-col min-w-0;
+  }
+  .board-hdr {
+    @apply bg-bet-brand text-white font-display text-sm font-bold tracking-[1px] px-[14px] py-1.5 flex items-center gap-2.5 uppercase sticky top-0 z-10 border-b border-bet-dk;
+  }
+  .upd-btn {
+    @apply bg-white/15 border border-white/25 text-white font-display text-[11px] font-semibold tracking-[0.5px] px-2.5 py-[3px] cursor-pointer rounded-[3px] transition-colors uppercase flex items-center gap-1;
+  }
+  .upd-btn:hover { @apply bg-white/25; }
+  .upd-btn.spinning .spin { animation: var(--animate-spin-bet); }
+  .lupd { @apply text-[10px] text-white/60; }
+  .brd-continue {
+    @apply ml-auto bg-bet-accent border-none text-white font-display text-[13px] font-bold tracking-[0.8px] px-4 py-1 cursor-pointer rounded-[3px] uppercase flex items-center gap-1;
+  }
+  .brd-continue:hover { @apply bg-bet-accent-dk; }
+
+  /* ── column headers ── */
+  .col-hdrs {
+    @apply bg-bet-alt border-b-2 border-bet-border grid font-display text-[11px] font-semibold tracking-[0.8px] text-bet-text-sm uppercase sticky top-[37px] z-[9];
+    grid-template-columns: 220px 1fr 1fr 1fr 1fr;
+  }
+  .ch {
+    @apply px-2 py-[5px] text-center border-r border-bet-border;
+  }
+  .ch:first-child { @apply text-left; }
+  .ch-limit {
+    @apply text-[10px] font-normal text-bet-text-xs block;
+  }
+  .ch.disabled { @apply opacity-35; }
+
+  /* ── date separator ── */
+  .dsep {
+    @apply bg-[#c8d4d8] text-bet-text-sm font-display text-[11px] font-bold tracking-[1px] px-[14px] py-1 uppercase border-b border-bet-border;
+  }
+
+  /* ── game block ── */
+  .gblock { @apply border-b-2 border-bet-border; }
+  .ginfo {
+    @apply bg-bet-alt px-2.5 py-1 flex items-center gap-2.5 border-b border-black/5;
+  }
+  .gtime-lbl {
+    @apply font-display text-[11px] font-bold text-white whitespace-nowrap bg-bet-time px-1.5 py-px rounded-[2px];
+  }
+  .gtime-lbl.live {
+    @apply bg-bet-red;
+    animation: var(--animate-pulse-bet);
+  }
+  .gdesc {
+    @apply text-[11px] text-bet-text-sm flex-1 whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1;
+  }
+  .gdesc .vs {
+    @apply text-bet-text-xs text-[10px] uppercase tracking-[0.5px];
+  }
+  .gnotes {
+    @apply text-[10px] text-bet-text-xs italic whitespace-nowrap;
+  }
+
+  /* ── enriched game info pieces ── */
+  .gbadge {
+    @apply font-display text-[10px] font-bold text-white bg-bet-emphasis px-1.5 py-px rounded-[2px] tracking-[0.5px] uppercase whitespace-nowrap;
+  }
+  .gbadge.alt { @apply bg-bet-accent; }
+  .gseed {
+    @apply font-display text-[10px] font-bold text-bet-text-sm bg-white border border-bet-border px-1 rounded-[2px] leading-[14px];
+  }
+  .gnet {
+    @apply text-[10px] text-bet-text-xs italic ml-1;
+  }
+  .ginfo-meta {
+    @apply flex items-center gap-2 whitespace-nowrap flex-shrink-0;
+  }
+  .gseries {
+    @apply font-display text-[10px] font-bold text-bet-accent-dk bg-bet-accent/10 border border-bet-accent/25 px-[5px] py-px rounded-[2px] tracking-[0.3px] uppercase;
+  }
+  .gmaxw {
+    @apply font-display text-[10px] font-semibold text-bet-text-sm pl-2 border-l border-bet-border;
+  }
+  .ginjury {
+    @apply bg-bet-red/5 border-b border-black/5 py-0.5 pr-2.5 pl-[60px] text-[10px] text-bet-red italic whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+  .ginjury::before {
+    content: "\26A0  ";
+    font-style: normal;
+    font-weight: 700;
+    margin-right: 2px;
+  }
+
+  /* ── team rows ── */
+  .trow-g {
+    @apply grid items-center min-h-[34px] border-b border-black/5 transition-colors;
+    grid-template-columns: 220px 1fr 1fr 1fr 1fr;
+  }
+  .trow-g:hover { @apply bg-bet-brand/5; }
+  .trow-g:last-child { @apply border-b-0; }
+  .tname-g {
+    @apply px-2.5 py-[5px] flex items-center gap-[7px] text-[13px] font-medium;
+  }
+  .tlogo {
+    @apply w-5 h-5 rounded-full bg-bet-alt border border-bet-border flex items-center justify-center font-display text-[9px] font-bold text-bet-brand flex-shrink-0;
+  }
+
+  /* ── odds cell (straight: input + odds button) ── */
+  .ocell {
+    @apply px-1.5 py-[3px] text-center border-r border-black/5 flex items-center justify-center gap-1;
+  }
+  .ocell:last-child { @apply border-r-0; }
+
+  .wager-inp {
+    @apply w-[52px] border border-bet-border rounded-[2px] px-1 py-[3px] font-display text-xs font-bold text-right bg-white text-bet-green h-[26px];
+  }
+  .wager-inp:focus { @apply border-bet-brand outline-none; }
+
+  .obtn {
+    @apply bg-white border border-bet-border rounded-[3px] px-2 py-[3px] font-body text-[11px] text-bet-text cursor-pointer transition-all min-w-[78px] flex items-center justify-between gap-[3px] h-[26px];
+  }
+  .obtn:hover { @apply border-bet-brand text-bet-brand; }
+  .obtn.sel  { @apply bg-bet-brand border-bet-dk text-white; }
+  .obtn.sel .ovig { @apply text-[#aee]; }
+  .onum { @apply font-semibold text-xs; }
+  .ovig { @apply text-[10px] text-bet-text-sm; }
+  .odash { @apply text-bet-text-xs text-[11px]; }
+
+  /* ── parlay cell (click-to-add, no input) ── */
+  .pbtn {
+    @apply bg-white border border-bet-border rounded-[3px] px-2.5 py-[3px] font-body text-xs font-semibold text-bet-text cursor-pointer transition-all min-w-[90px] h-[26px] flex items-center justify-center;
+  }
+  .pbtn:hover { @apply border-bet-brand text-bet-brand; }
+  .pbtn.sel   { @apply bg-bet-sel-dk border-black text-[#e0e0e0]; }
+  .pbtn.empty { @apply bg-transparent border-none text-bet-text-xs cursor-default; }
+
+  /* ── line movement animations ── */
+  .obtn.mup { animation: var(--animate-fade-up); }
+  .obtn.mdn { animation: var(--animate-fade-dn); }
+
+  /* ── alt-line popover ──────────────────────────────────────────────────
+     Triggered by the ▼ chevron on an odds cell. Floats a scrollable list of
+     all handicap variants for that team's market. Click any row to swap
+     selection. Closes on click-outside (wired in main.js). One popover open
+     at a time (open() closes any existing). */
+  .ocell { @apply relative; }   /* anchor for absolute-positioned popover */
+  .tcell { @apply relative; }   /* same anchor role for teaser cells */
+  .alt-chev {
+    @apply h-[26px] w-[18px] flex items-center justify-center cursor-pointer text-bet-text-xs text-[10px] border border-bet-border rounded-[3px] bg-bet-alt hover:bg-bet-brand hover:text-white hover:border-bet-dk transition-colors flex-shrink-0 select-none font-bold;
+  }
+  .alt-chev.open { @apply bg-bet-brand text-white border-bet-dk; }
+  .alt-pop {
+    @apply absolute z-50 top-full left-0 mt-1 bg-white border border-bet-dk rounded-[3px] shadow-lg min-w-[160px];
+  }
+  .alt-pop-hdr {
+    @apply font-display text-[10px] font-bold tracking-[0.6px] uppercase text-white bg-bet-darker px-2 py-1 flex items-center justify-between rounded-t-[2px];
+  }
+  .alt-pop-hdr .alt-pop-close {
+    @apply bg-transparent border-none text-white cursor-pointer text-xs leading-none px-1 hover:text-bet-accent;
+  }
+  .alt-pop-list {
+    @apply max-h-[240px] overflow-y-auto;
+  }
+  .alt-pop-row {
+    @apply flex items-center justify-between px-2 py-[5px] font-body text-[11px] cursor-pointer border-b border-black/5 transition-colors;
+  }
+  .alt-pop-row:last-child { @apply border-b-0; }
+  .alt-pop-row:hover { @apply bg-bet-brand/10; }
+  .alt-pop-row.main { @apply bg-bet-accent/10 font-semibold; }
+  .alt-pop-row.sel  { @apply bg-bet-brand text-white font-semibold; }
+  .alt-pop-row.sel .alt-pop-vig { @apply text-[#aee]; }
+  .alt-pop-line { @apply font-display font-semibold text-bet-text; }
+  .alt-pop-row.sel .alt-pop-line { @apply text-white; }
+  .alt-pop-vig  { @apply text-[10px] text-bet-text-sm ml-2; }
+  .alt-pop-empty { @apply px-2 py-2 text-bet-text-xs text-[10px] italic; }
+
+  /* ── player props section (LC797-style layout) ───────────────────────────
+     Mimics LC797's prop board: a game banner, then a stack of prop cards.
+     Each card has a teal-banded header + two stacked rows (Over / Under),
+     with the input + odds button aligned to the same column as the main
+     board's Total cell so visual continuity holds. Prop buttons get an
+     alt-line popover (3-col: line / over vig / under vig) when the prop
+     entry has alts. The popover is anchored to .prop-bet-cell. */
+  .prop-section {
+    @apply border-t border-bet-border bg-bet-bg;
+  }
+  .prop-section.hidden-section { @apply hidden; }
+
+  .prop-banner {
+    @apply bg-bet-brand text-white font-display text-[13px] font-semibold tracking-[0.4px] px-3 py-1.5 text-center;
+  }
+
+  .prop-card {
+    @apply bg-bet-alt border-b border-bet-border;
+  }
+  .prop-card:last-child { @apply border-b-0; }
+
+  .prop-card-hdr {
+    @apply flex items-stretch bg-bet-lt text-white text-[12px] font-medium;
+  }
+  .prop-card-hdr .pt-tag {
+    @apply bg-bet-time font-display font-semibold text-[11px] tracking-[0.4px] px-2.5 py-1 flex items-center;
+  }
+  .prop-card-hdr .pt-desc {
+    @apply px-3 py-1 flex-1 flex items-center;
+  }
+
+  .prop-bet-row {
+    @apply grid items-center px-0 py-1.5 text-[12px] border-t border-black/5;
+    grid-template-columns: 220px 1fr 1fr 1fr 1fr;
+  }
+  .prop-bet-row:first-of-type { @apply border-t-0; }
+  .prop-bet-row:hover { @apply bg-bet-brand/5; }
+
+  .prop-bet-info {
+    @apply pl-3 flex items-center gap-2 text-bet-text overflow-hidden;
+  }
+  .prop-bet-id {
+    @apply font-display text-bet-text-xs text-[11px] tracking-[0.3px] whitespace-nowrap;
+  }
+  .prop-bet-name {
+    @apply font-body font-semibold text-bet-text text-[12px] whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+
+  .prop-bet-cell {
+    @apply relative px-1.5 py-[3px] text-center flex items-center justify-center gap-1;
+    grid-column: 4;       /* align under the Total column of the main board */
+  }
+
+  .prop-obtn {
+    @apply bg-white border border-bet-border rounded-[3px] px-2 py-[3px] font-body text-[11px] text-bet-text cursor-pointer transition-all min-w-[98px] flex items-center justify-center gap-1 h-[26px];
+  }
+  .prop-obtn:hover { @apply border-bet-brand text-bet-brand; }
+  .prop-obtn.sel { @apply bg-bet-brand border-bet-dk text-white; }
+  .prop-obtn .pvig { @apply text-[10px] text-bet-text-sm ml-1; }
+  .prop-obtn.sel .pvig { @apply text-[#aee]; }
+
+  /* Prop alt-line popover — anchored to .prop-bet-cell, 3 columns.
+     Distinct from .alt-pop (spread/total/tt) because props expose both
+     over and under vigs per alt line side-by-side. The active side
+     (O or U) is highlighted via .prop-alt-pop-row.side-active. */
+  .prop-alt-pop {
+    @apply absolute z-50 top-full right-0 mt-1 bg-white border border-bet-dk rounded-[3px] shadow-lg min-w-[200px];
+  }
+  .prop-alt-pop-hdr {
+    @apply font-display text-[10px] font-bold tracking-[0.6px] uppercase text-white bg-bet-darker px-2 py-1 flex items-center justify-between rounded-t-[2px];
+  }
+  .prop-alt-pop-hdr .prop-alt-pop-close {
+    @apply bg-transparent border-none text-white cursor-pointer text-xs leading-none px-1 hover:text-bet-accent;
+  }
+  .prop-alt-pop-cols {
+    @apply grid font-display text-[9px] tracking-[0.5px] uppercase text-bet-text-xs bg-bet-alt px-2 py-1 border-b border-bet-border;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .prop-alt-pop-list {
+    @apply max-h-[260px] overflow-y-auto;
+  }
+  .prop-alt-pop-row {
+    @apply grid items-center px-2 py-[5px] font-body text-[11px] border-b border-black/5 transition-colors;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .prop-alt-pop-row:last-child { @apply border-b-0; }
+  .prop-alt-pop-row.main .prop-alt-pop-line { @apply text-bet-accent font-semibold; }
+  .prop-alt-pop-line { @apply font-display font-semibold text-bet-text text-center; }
+  .prop-alt-pop-vig {
+    @apply font-display text-[11px] text-center cursor-pointer rounded-[2px] px-1 py-[2px] hover:bg-bet-brand hover:text-white border border-transparent;
+  }
+  .prop-alt-pop-vig.sel { @apply bg-bet-brand text-white border-bet-dk font-semibold; }
+  .prop-alt-pop-empty { @apply px-2 py-2 text-bet-text-xs text-[10px] italic; }
+
+  /* ── teaser menu ── */
+  .teaser-menu {
+    @apply px-[18px] py-[14px] bg-bet-panel;
+  }
+  .tm-hdr {
+    @apply font-display text-[13px] font-bold tracking-[1.5px] text-white bg-bet-darker px-3 py-[7px] text-center uppercase -mx-[18px] -mt-[14px] mb-[14px];
+  }
+  .tm-row {
+    @apply grid gap-2.5 items-center bg-white border border-bet-border rounded px-[14px] py-2.5 mb-2;
+    grid-template-columns: 1.4fr 1fr 1fr;
+  }
+  .tm-row.dis { @apply opacity-50; }
+  .tm-vbtn {
+    @apply font-display text-sm font-bold tracking-[0.8px] text-bet-darker bg-transparent border-[1.5px] border-bet-brand rounded-[3px] px-[14px] py-2 cursor-pointer uppercase transition-all;
+  }
+  .tm-vbtn:hover:not(:disabled) { @apply bg-bet-brand text-white; }
+  .tm-vbtn:disabled { @apply cursor-not-allowed border-bet-border text-bet-text-xs; }
+  .tm-link {
+    @apply font-display text-xs font-semibold text-bet-brand underline cursor-pointer text-center uppercase tracking-[0.5px] bg-transparent border-none p-1.5;
+  }
+  .tm-link:hover { @apply text-bet-accent; }
+  .tm-link.dim { @apply text-bet-text-xs cursor-default no-underline; }
+  .tm-foot {
+    @apply mt-[14px] text-[10px] text-bet-text-xs text-center italic;
+  }
+
+  /* ── teaser shifted-line cells ── */
+  .tcell {
+    @apply px-1.5 py-[3px] text-center border-r border-black/5 flex items-center justify-center gap-1;
+  }
+  .tcell:last-child { @apply border-r-0; }
+  .tbtn {
+    @apply bg-white border border-bet-border rounded-[3px] px-3 py-[5px] font-body text-[13px] font-semibold text-bet-text cursor-pointer transition-all min-w-[90px] h-8 flex items-center justify-center gap-1;
+  }
+  .tbtn:hover { @apply border-bet-brand text-bet-brand; }
+  .tbtn.sel   { @apply bg-bet-sel-dk border-black text-[#e0e0e0]; }
+  .tbtn .torig {
+    @apply text-[10px] text-bet-text-xs line-through font-normal;
+  }
+  .tbtn.sel .torig { @apply text-[#aaa]; }
+  .tbtn.empty { @apply bg-transparent border-none text-bet-text-xs cursor-default; }
+
+  /* ── teaser payouts modal (table) ── */
+  .tpay-table {
+    @apply w-full border-collapse my-2.5;
+  }
+  .tpay-table th {
+    @apply bg-bet-darker text-white font-display text-[11px] font-semibold px-2.5 py-1.5 tracking-[0.5px] uppercase text-center;
+  }
+  .tpay-table td {
+    @apply px-2.5 py-1.5 border-b border-bet-border text-center font-display text-[13px] font-semibold;
+  }
+  .tpay-sub {
+    @apply text-[11px] text-bet-text-sm mb-1;
+  }
+  .tpay-rule {
+    @apply text-[11px] text-bet-text-sm mt-1.5 italic;
+  }
+
+  /* ── if bet legs ── */
+  .if-leg {
+    @apply grid gap-2 items-center px-2.5 py-2 border-b border-bet-border;
+    grid-template-columns: 24px 1fr 80px 90px 28px;
+  }
+  .if-leg-num {
+    @apply font-display text-sm font-bold text-bet-accent text-center;
+  }
+  .if-leg-info { @apply min-w-0; }
+  .if-leg-team {
+    @apply text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis;
+  }
+  .if-leg-sub { @apply text-[10px] text-bet-text-xs; }
+  .if-leg-win {
+    @apply font-display text-xs font-bold text-bet-green text-right;
+  }
+  .if-leg-rule {
+    @apply text-[9px] font-semibold bg-bet-alt border border-bet-border rounded-[3px] px-1 py-[3px] font-display uppercase tracking-[0.4px] text-bet-text-sm cursor-pointer;
+  }
+  .if-leg-rule:hover { @apply border-bet-brand text-bet-brand; }
+  .if-leg-rm {
+    @apply bg-transparent border-none text-bet-red cursor-pointer text-[13px];
+  }
+  .if-totals {
+    @apply px-[14px] py-2.5 bg-bet-alt flex justify-between font-display text-[13px] font-bold border-t border-bet-border mt-2;
+  }
+  .if-totals .lbl  { @apply text-bet-text-sm font-normal; }
+  .if-totals .risk { @apply text-bet-red; }
+  .if-totals .win  { @apply text-bet-green; }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     BETSLIP RAIL — v2 redesign (2026-05-10)
+     ════════════════════════════════════════════════════════════════════════
+     The right rail now presents itself as a physical betting ticket:
+     warm paper background, a sharp orange accent stripe at the top, leg
+     cards with subtle elevation, and a receipt-style total. The aim is to
+     give parlay/teaser/ifbet modes a distinct, ownable identity that the
+     flat grey panel from v1 lacked — without drifting from the project's
+     sportsbook aesthetic.
+
+     v4 patterns demonstrated here:
+       • Custom shadow tokens (--shadow-card, --shadow-card-hover)
+       • Custom color tokens (--color-bet-ticket, --color-bet-card)
+       • group / group-hover for revealing the remove X
+       • @apply chains kept short — utility-first inside the markup is
+         fine for one-off layout (gap, flex, etc.) but visual identity
+         lives in tokens.
+     ════════════════════════════════════════════════════════════════════════ */
+  .sel-panel {
+    @apply w-rail flex-shrink-0 overflow-y-auto flex flex-col relative;
+    background: var(--color-bet-ticket);
+    /* Perforated-edge effect: orange stripe along the left edge suggests
+       the rail was "torn off" from the main board. Subtle but on-brand. */
+    border-left: 3px solid var(--color-bet-accent);
+    box-shadow: inset 6px 0 8px -6px rgba(0,0,0,0.08);
+  }
+
+  .spanel-hdr {
+    @apply bg-bet-darker text-white font-display text-xs font-bold px-3 py-2 flex items-center justify-between uppercase tracking-[1px] flex-shrink-0 relative;
+    /* Bottom accent bar — matches the orange left-stripe so the header
+       reads as a cohesive ticket "header band". */
+    border-bottom: 2px solid var(--color-bet-accent);
+  }
+  .spanel-hdr::before {
+    /* Tiny stylized "ticket" indicator on the left of the header. */
+    content: "▌";
+    color: var(--color-bet-accent);
+    font-size: 10px;
+    margin-right: 6px;
+    line-height: 1;
+  }
+  .spanel-hdr .ssclr {
+    @apply text-[10px] cursor-pointer bg-transparent border-none font-display tracking-[0.5px] uppercase transition-colors;
+    color: rgba(255,255,255,0.55);
+  }
+  .spanel-hdr .ssclr:hover { @apply text-bet-accent; }
+
+  /* ── combined-odds receipt total (parlay only) ── */
+  .sel-combined {
+    @apply px-3 py-3 text-center hidden flex-col gap-1;
+    background: var(--color-bet-card);
+    border-bottom: 1px dashed var(--color-bet-ticket-dk);
+  }
+  .sel-combined.show { @apply flex; }
+  .sel-combined .clbl {
+    @apply text-[9px] text-bet-text-xs uppercase tracking-[1.2px] font-display font-semibold;
+  }
+  .sel-combined .codds {
+    @apply font-display text-[28px] font-bold leading-none text-bet-darker;
+    /* Slight letter-spacing tightening makes the big decimal feel
+       intentional rather than just "big text". */
+    letter-spacing: -0.5px;
+  }
+  .sel-combined .csub {
+    @apply text-[10px] text-bet-text-sm font-display tracking-[0.5px];
+  }
+  .sel-combined .cam {
+    @apply font-display text-[11px] font-bold text-bet-accent-dk tracking-[0.5px];
+  }
+
+  /* ── leg cards container ── */
+  .sel-legs-wrap {
+    @apply flex flex-col gap-2 px-2 py-2;
+  }
+
+  /* ── individual leg card ── */
+  .sel-leg {
+    @apply relative flex items-center gap-2 px-2.5 py-2 rounded-md text-[11px] transition-all duration-150;
+    background: var(--color-bet-card);
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--color-bet-ticket-dk);
+  }
+  .sel-leg:hover {
+    background: var(--color-bet-card-hover);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-1px);
+  }
+
+  /* leg identity badge — initials (parlay/teaser) or sequence number (ifbet) */
+  .sel-logo {
+    @apply w-6 h-6 rounded-full flex items-center justify-center font-display text-[10px] font-bold flex-shrink-0;
+    background: var(--color-bet-alt);
+    color: var(--color-bet-brand);
+    border: 1px solid var(--color-bet-border);
+  }
+  .sel-logo.numbered {
+    background: var(--color-bet-accent);
+    color: #fff;
+    border-color: var(--color-bet-accent-dk);
+    /* Slightly different typography for sequence numbers — larger, no
+       letter-spacing — to read as a position indicator, not initials. */
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
+  /* ── modal review row logo (parlay/teaser/ifbet confirm modals) ── */
+  .pmlogo {
+    @apply w-[22px] h-[22px] rounded-full flex items-center justify-center font-display text-[10px] font-bold flex-shrink-0;
+    background: var(--color-bet-alt);
+    color: var(--color-bet-brand);
+    border: 1px solid var(--color-bet-border);
+  }
+
+  /* ── team logo IMG variants (real PNG layered on top of monogram styles) ──
+     Same dimensions as their monogram counterparts so the layout is identical
+     whether the image loads or the onerror handler swaps in the .tlogo /
+     .sel-logo / .pmlogo / .mob-tlogo div. object-contain prevents stretching
+     for non-square logos (NCAA wordmarks, alternates). */
+  .tlogo-img {
+    @apply w-5 h-5 rounded-full bg-white object-contain flex-shrink-0;
+  }
+  .sel-logo-img {
+    @apply w-6 h-6 rounded-full bg-white object-contain flex-shrink-0;
+  }
+  .pmlogo-img {
+    @apply w-[22px] h-[22px] rounded-full bg-white object-contain flex-shrink-0;
+  }
+  .mob-tlogo-img {
+    @apply w-[18px] h-[18px] rounded-full bg-white object-contain flex-shrink-0;
+  }
+
+  /* leg text block */
+  .sel-info { @apply flex-1 min-w-0 flex flex-col gap-px; }
+  .sel-team {
+    @apply font-semibold text-[12px] text-bet-text truncate;
+    line-height: 1.2;
+  }
+  .sel-sub {
+    @apply text-[10px] text-bet-text-sm truncate;
+  }
+  .sel-sub .torig {
+    @apply text-bet-text-xs line-through font-normal;
+  }
+  .sel-sub strong {
+    @apply font-display font-bold text-bet-darker;
+  }
+
+  /* odds chip on the right (parlay/teaser) */
+  .sel-odds {
+    @apply font-display text-[11px] font-bold text-bet-darker px-1.5 py-0.5 rounded flex-shrink-0;
+    background: var(--color-bet-alt);
+  }
+
+  /* remove X — hidden by default, revealed on hover of the leg card */
+  .sel-rm {
+    @apply absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-transparent border-none text-bet-red cursor-pointer text-[11px] opacity-0 transition-opacity;
+  }
+  .sel-leg:hover .sel-rm { @apply opacity-100; }
+  .sel-rm:hover {
+    background: rgba(192, 57, 43, 0.12);
+  }
+
+  /* ── empty state ── */
+  .sel-empty {
+    @apply flex flex-col items-center justify-center text-center px-4 py-8 gap-2 text-[11px] text-bet-text-sm;
+    line-height: 1.5;
+  }
+  .sel-empty::before {
+    content: "🎟";
+    font-size: 32px;
+    opacity: 0.4;
+    line-height: 1;
+  }
+  .sel-empty strong {
+    @apply font-display text-[12px] font-bold text-bet-darker tracking-[0.5px] uppercase;
+  }
+  .sel-empty small {
+    @apply text-[9px] text-bet-text-xs italic;
+  }
+
+  /* ── generic empty state (My Bets modal, review screens, board) ──
+     Shared structure: big-but-muted icon, uppercase heading, descriptive
+     subtext, optional italic hint. Mirrors .sel-empty visually so the
+     UI feels coherent across surfaces. The icon glyph is set per-instance
+     via a data-icon attribute on the host element. */
+  .estate {
+    @apply flex flex-col items-center justify-center text-center px-6 py-10 gap-2 text-[12px] text-bet-text-sm;
+    line-height: 1.5;
+  }
+  .estate::before {
+    content: attr(data-icon);
+    font-size: 40px;
+    opacity: 0.35;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .estate strong {
+    @apply font-display text-[13px] font-bold text-bet-darker tracking-[0.5px] uppercase;
+  }
+  .estate span { @apply text-[11px] text-bet-text-sm; }
+  .estate small { @apply text-[10px] text-bet-text-xs italic; }
+
+  /* ── CONTINUE button — committed weight ── */
+  .sel-continue {
+    @apply mt-auto sticky bottom-0 border-none font-display text-[13px] font-bold tracking-[1px] py-3 cursor-pointer uppercase flex items-center justify-center gap-2 text-white transition-all;
+    /* Gradient gives the button real "weight" — feels like a commit
+       action, not just another tab. Subtle inset shadow at the top
+       suggests it's pressed into the rail. */
+    background: linear-gradient(180deg, var(--color-bet-accent) 0%, var(--color-bet-accent-dk) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 -2px 8px rgba(0,0,0,0.1);
+  }
+  .sel-continue:hover {
+    background: linear-gradient(180deg, var(--color-bet-accent-dk) 0%, #a04d0a 100%);
+  }
+  .sel-continue.dim {
+    background: var(--color-bet-text-xs);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  /* Count badge integrated into the button */
+  .sel-continue .scn {
+    @apply inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-black/25 text-white text-[11px] font-bold;
+  }
+
+  /* ── review screen (straight bet confirmation) ── */
+  .review-screen {
+    @apply hidden flex-col bg-bet-bg flex-1 overflow-y-auto;
+  }
+  .review-screen.show { @apply flex; }
+  .rv-hdr {
+    @apply bg-bet-accent text-white font-display text-base font-bold tracking-[1px] px-4 py-2 uppercase flex items-center justify-between;
+  }
+  .rv-back {
+    @apply bg-transparent border border-white text-white font-display text-xs px-2 py-0.5 rounded cursor-pointer uppercase;
+  }
+  .rv-back:hover { @apply bg-white text-bet-accent; }
+  .rv-table {
+    @apply w-full border-collapse my-3 bg-white;
+  }
+  .rv-table th {
+    @apply bg-bet-darker text-white font-display text-[11px] font-semibold px-2 py-1.5 tracking-[0.5px] uppercase text-center;
+  }
+  .rv-table td {
+    @apply px-2 py-1.5 border-b border-bet-border text-[12px];
+  }
+  .rv-summary {
+    @apply px-4 py-2 bg-bet-alt flex justify-end gap-6 font-display text-[13px] font-bold border-t border-bet-border;
+  }
+  .rv-summary .lbl { @apply text-bet-text-sm font-normal; }
+  .rv-summary .risk { @apply text-bet-red; }
+  .rv-summary .win  { @apply text-bet-green; }
+  .rv-actions {
+    @apply px-4 py-3 flex justify-end gap-2 bg-bet-panel border-t border-bet-border;
+  }
+  .rv-cancel, .rv-confirm {
+    @apply font-display text-sm font-bold tracking-[0.8px] px-5 py-2 cursor-pointer uppercase rounded-[3px] border-none transition-colors;
+  }
+  .rv-cancel  { @apply bg-bet-alt text-bet-text-sm border border-bet-border; }
+  .rv-cancel:hover  { @apply bg-bet-border; }
+  .rv-confirm { @apply bg-bet-accent text-white; }
+  .rv-confirm:hover { @apply bg-bet-accent-dk; }
+
+  /* ── modal overlays (parlay, teaser, ifbet, settings, my bets) ── */
+  .pmoverlay {
+    @apply fixed inset-0 bg-black/55 hidden items-center justify-center z-50;
+  }
+  .pmoverlay.open { @apply flex; }
+  .pmodal {
+    @apply bg-white rounded-md w-[460px] max-w-[92vw] max-h-[88vh] overflow-y-auto flex flex-col;
+  }
+  .pmh {
+    @apply bg-bet-darker text-white font-display text-sm font-bold px-3 py-2 flex items-center justify-between uppercase tracking-[1px];
+  }
+  .pmh .pmclose {
+    @apply bg-transparent border-none text-white cursor-pointer text-base;
+  }
+  .pmbody { @apply px-3 py-3 flex flex-col gap-2; }
+  .pmleg {
+    @apply flex justify-between items-center px-2 py-1.5 bg-bet-alt rounded-[3px] text-[12px];
+  }
+  .pmleg .pmleg-tm { @apply font-semibold; }
+  .pmleg .pmleg-ln { @apply font-display font-bold text-bet-darker; }
+  .pminputs {
+    @apply grid grid-cols-2 gap-2 mt-2;
+  }
+  .pmcell {
+    @apply bg-bet-alt rounded-[3px] px-2 py-1.5 flex flex-col gap-0.5;
+  }
+  .pmcell label,
+  .pmcell .lbl {
+    @apply text-[10px] text-bet-text-sm uppercase tracking-[0.5px];
+  }
+  .pmcell input {
+    @apply bg-white border border-bet-border rounded-[2px] px-2 py-1 font-display text-sm font-bold;
+  }
+  .pmcell input.invalid { @apply border-bet-red; }
+  .pmodd {
+    @apply text-[11px] text-bet-text-sm text-center mt-1;
+  }
+  .pmconfirm {
+    @apply bg-bet-accent text-white font-display text-[13px] font-bold tracking-[0.8px] py-2.5 cursor-pointer uppercase border-none mt-2 rounded-[3px];
+  }
+  .pmconfirm:hover { @apply bg-bet-accent-dk; }
+  .pmconfirm:disabled { @apply bg-bet-text-xs cursor-not-allowed; }
+
+  /* ── my bets modal ── */
+  .bmodal-overlay {
+    @apply fixed inset-0 bg-black/55 hidden items-center justify-center z-50;
+  }
+  .bmodal-overlay.open { @apply flex; }
+  .bmodal {
+    @apply bg-white rounded-md w-[520px] max-w-[94vw] max-h-[88vh] overflow-y-auto flex flex-col;
+  }
+  .bmh {
+    @apply bg-bet-darker text-white font-display text-sm font-bold px-3 py-2 flex items-center justify-between uppercase tracking-[1px];
+  }
+  .bmh button {
+    @apply bg-transparent border-none text-white cursor-pointer text-base;
+  }
+  .bmbody { @apply px-3 py-3 flex flex-col gap-2; }
+  .bmcard {
+    @apply border border-bet-border rounded-[3px] px-2 py-2 bg-bet-alt;
+  }
+  .bmcard .bmstat {
+    @apply text-[10px] font-display font-bold uppercase tracking-[0.5px];
+  }
+  .bmcard .bmstat.pending { @apply text-bet-accent; }
+  .bmcard .bmstat.won     { @apply text-bet-green; }
+  .bmcard .bmstat.lost    { @apply text-bet-red; }
+  .bmcard .bmstat.push    { @apply text-bet-text-sm; }
+  .bm-amts {
+    @apply flex gap-3 text-[11px] mt-1;
+  }
+  .bm-amts .lbl { @apply text-bet-text-sm; }
+  .bm-amts .risk { @apply font-display font-bold text-bet-red; }
+  .bm-amts .win  { @apply font-display font-bold text-bet-green; }
+  .bm-settle {
+    @apply flex gap-1 mt-1.5;
+  }
+  .bm-settle button {
+    @apply font-display text-[10px] font-bold tracking-[0.5px] px-2 py-0.5 rounded-[2px] border cursor-pointer uppercase;
+  }
+  .bm-settle .b-won  { @apply bg-bet-green/10 border-bet-green text-bet-green; }
+  .bm-settle .b-push { @apply bg-bet-alt border-bet-border text-bet-text-sm; }
+  .bm-settle .b-lost { @apply bg-bet-red/10 border-bet-red text-bet-red; }
+
+
+  /* ── settings modal ─────────────────────────────────────────────────────
+     Simple overlay drawer for API key, Mock Mode, book preference, balance
+     reset, and quota display. Markup in index.html. */
+  .set-overlay {
+    @apply fixed inset-0 bg-black/55 hidden items-center justify-center z-50;
+  }
+  .set-overlay.open { @apply flex; }
+  .set-modal {
+    @apply bg-white rounded-md w-[440px] max-w-[92vw] max-h-[88vh] overflow-y-auto flex flex-col;
+  }
+  .set-hdr {
+    @apply bg-bet-darker text-white font-display text-sm font-bold px-3 py-2 flex items-center justify-between uppercase tracking-[1px];
+  }
+  .set-body {
+    @apply p-4 flex flex-col gap-4;
+  }
+  .set-row {
+    @apply flex flex-col gap-1;
+  }
+  .set-row label,
+  .set-row .lbl {
+    @apply font-display text-[11px] font-semibold uppercase tracking-[0.6px] text-bet-text-sm;
+  }
+  .set-row input[type="password"],
+  .set-row input[type="text"],
+  .set-row select {
+    @apply font-body text-sm px-2 py-1.5 border border-bet-border rounded-[3px] bg-white text-bet-text outline-none focus:border-bet-brand;
+  }
+  .set-save {
+    @apply font-display text-xs font-bold tracking-[0.5px] uppercase bg-bet-brand text-white border border-bet-dk rounded-[3px] px-3 py-1.5 cursor-pointer hover:bg-bet-dk transition-colors self-start;
+  }
+  /* Secondary/neutral variant of .set-save (e.g., destructive-ish actions like "Reset Balance").
+     Background uses bet-text-sm/bet-text tokens as a neutral gray surface — those are nominally
+     text tokens, but they're the project's existing neutral-gray scale and reusing them here
+     avoids introducing a parallel surface palette. Keep this contained to .set-save-secondary. */
+  .set-save-secondary {
+    @apply font-display text-xs font-bold tracking-[0.5px] uppercase bg-bet-text-sm hover:bg-bet-text text-white border border-bet-dk rounded-[3px] px-3 py-1.5 cursor-pointer transition-colors self-start;
+  }
+  .set-help {
+    @apply text-[10px] text-bet-text-xs italic mt-1;
+  }
+  .set-toggle-row {
+    @apply flex items-center gap-2 text-[12px];
+  }
+
+  /* ── toast ──────────────────────────────────────────────────────────── */
+  .toast {
+    @apply fixed left-1/2 -translate-x-1/2 bottom-8 bg-bet-darker text-white font-body text-sm px-4 py-2 rounded-[4px] shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 z-[100];
+  }
+  .toast.show { @apply opacity-100; }
+
+  /* ════════════════════════════════════════════════════════════════════
+     MOBILE — components used only by index_mobile.html / src/mobile/main.js.
+     Mobile uses a stacked card layout, bottom-nav for mode switching, and a
+     bottom-sheet pattern for alt-lines instead of the desktop popover.
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* header */
+  .mob-header {
+    @apply bg-bet-darker text-white flex items-center gap-2 px-3 h-[48px] flex-shrink-0 border-b-2 border-bet-accent;
+  }
+  .mob-menu-btn {
+    @apply bg-transparent border-none text-white text-[22px] cursor-pointer w-9 h-9 flex items-center justify-center;
+  }
+  .mob-logo {
+    @apply font-display text-[18px] font-bold tracking-[0.5px] uppercase;
+  }
+  .mob-logo span { @apply text-bet-accent; }
+  .mob-hbadge {
+    @apply font-display text-[9px] font-bold tracking-[0.8px] uppercase bg-bet-accent/20 text-bet-accent border border-bet-accent/40 rounded-[2px] px-1.5 py-0.5;
+  }
+  .mob-hright { @apply ml-auto text-right; }
+  .mob-hlabel {
+    @apply block font-display text-[9px] uppercase tracking-[0.6px] text-white/70 leading-tight;
+  }
+  .mob-hval {
+    @apply font-display text-[14px] font-bold text-bet-green leading-tight;
+  }
+
+  /* api bar */
+  .mob-api-bar {
+    @apply bg-bet-dk border-b border-white/10 px-3 py-1 flex items-center gap-2 text-[10px] text-[#7ab] flex-shrink-0;
+  }
+
+  /* sport tabs */
+  .mob-stabs {
+    @apply bg-bet-brand flex flex-shrink-0 border-b border-bet-dk overflow-x-auto;
+  }
+  .mob-stab {
+    /* native <button> reset: kill UA bg + side/top borders, keep bottom border below */
+    @apply flex-shrink-0 px-4 py-2 text-center font-display text-[12px] font-bold tracking-[0.6px] uppercase text-white/60 cursor-pointer bg-transparent border-0 border-b-2 border-transparent transition-all whitespace-nowrap select-none inline-flex items-center gap-1.5;
+  }
+  .mob-stab .lg-icon { opacity: 0.75; }
+  .mob-stab.active { @apply text-white border-bet-accent bg-black/20; }
+  .mob-stab.active .lg-icon { opacity: 1; }
+
+  /* board sub-header */
+  .mob-bsub {
+    @apply bg-bet-alt px-3 py-1.5 flex items-center gap-2 border-b border-bet-border flex-shrink-0;
+  }
+  .mob-upd-btn {
+    @apply w-7 h-7 flex items-center justify-center bg-bet-brand text-white border border-bet-dk rounded-[3px] cursor-pointer font-bold text-[14px];
+  }
+
+  /* odds board (mobile uses stacked cards, not the three-col desktop grid) */
+  .mob-board {
+    @apply bg-bet-bg pb-[68px]; /* bottom padding clears the mob-nav */
+  }
+  .mob-gcard {
+    /* Was bg-white — too bright vs. desktop, which has transparent team rows
+       over the muted page bg (#c9d1d9). Matching to bg-bet-bg here so mobile
+       game rows share the same darker grey-blue surface as desktop. The
+       .mob-gcard-hdr keeps its bg-bet-alt strip for header contrast. */
+    @apply bg-bet-bg border-b border-bet-border;
+  }
+  .mob-gcard-hdr {
+    @apply bg-bet-alt px-3 py-1.5 text-[11px] text-bet-text-sm flex items-center gap-2;
+  }
+  .mob-gcard-row {
+    @apply grid items-center px-3 py-2 border-t border-black/5;
+    grid-template-columns: 1fr 60px 60px 60px;
+    gap: 6px;
+  }
+  .mob-gcard-row .mob-teamname {
+    @apply font-body text-[13px] text-bet-text font-medium truncate flex items-center gap-2;
+  }
+  /* Mobile team logo monogram fallback (paired with .mob-tlogo-img above). */
+  .mob-tlogo {
+    @apply w-[18px] h-[18px] rounded-full bg-bet-alt border border-bet-border flex items-center justify-center font-display text-[8px] font-bold text-bet-brand flex-shrink-0;
+  }
+  .mob-obtn {
+    @apply bg-white border border-bet-border rounded-[3px] py-1 font-body text-[11px] text-bet-text cursor-pointer text-center min-h-[36px] flex flex-col items-center justify-center leading-tight;
+  }
+  .mob-obtn:active { @apply bg-bet-brand/10; }
+  .mob-obtn.sel { @apply bg-bet-brand border-bet-dk text-white; }
+  .mob-obtn .mob-oline { @apply font-display font-semibold text-[12px]; }
+  .mob-obtn .mob-ovig  { @apply text-[10px] text-bet-text-sm; }
+  .mob-obtn.sel .mob-ovig { @apply text-[#aee]; }
+
+  /* alt-line chevron on a mobile odds button */
+  .mob-alt-chev {
+    @apply ml-1 inline-flex items-center justify-center w-4 h-4 text-[9px] text-bet-text-sm rounded-[2px];
+  }
+
+  /* bottom nav */
+  .mob-nav {
+    @apply fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-bet-darker border-t-2 border-bet-accent flex items-stretch h-[60px] z-30;
+  }
+  .mob-nbtn {
+    @apply flex-1 flex flex-col items-center justify-center gap-0.5 bg-transparent border-none text-white/60 cursor-pointer relative;
+  }
+  .mob-nbtn.active { @apply text-white; }
+  .mob-nbtn.active::after {
+    content:'';
+    @apply absolute top-0 left-[20%] right-[20%] h-[2px] bg-bet-accent;
+  }
+  /* Disabled state: shown on the Teaser tab when the active league has no
+     teaser shifts (MLB/NHL — teaserSportType() returns null). Still receives
+     clicks so setMode can toast, but is visually muted and cannot become
+     .active. Suppresses the .active orange underline via the rule above
+     since .disabled.active never coexists (setMode rejects the switch). */
+  .mob-nbtn.disabled {
+    @apply text-white/25 cursor-not-allowed;
+  }
+  .mob-nbtn.disabled .mob-nico,
+  .mob-nbtn.disabled .mob-nlbl {
+    @apply opacity-60;
+  }
+  .mob-nico { @apply text-[18px] leading-none; }
+  .mob-nlbl { @apply font-display text-[9px] font-semibold tracking-[0.4px] uppercase; }
+  .mob-nbadge {
+    @apply absolute top-1 right-3 bg-bet-accent text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center;
+  }
+  .mob-nbadge.hidden { @apply hidden; }
+
+  /* drawer */
+  .mob-doverlay {
+    @apply fixed inset-0 bg-black/55 z-40 hidden;
+  }
+  .mob-doverlay.open { @apply block; }
+  .mob-drawer {
+    @apply fixed top-0 left-0 bottom-0 w-[78%] max-w-[290px] bg-bet-bg z-50 -translate-x-full transition-transform duration-300 flex flex-col overflow-y-auto;
+  }
+  .mob-drawer.open { @apply translate-x-0; }
+  .mob-dhdr {
+    @apply bg-bet-dk text-white font-display text-sm font-bold tracking-[1px] px-4 py-3.5 flex items-center gap-2 border-b-2 border-bet-accent;
+  }
+  .mob-dsec {
+    @apply px-3.5 py-2.5 border-b border-bet-border flex flex-col gap-1;
+  }
+  .mob-dsec label,
+  .mob-dsec .lbl {
+    @apply font-display text-[10px] uppercase tracking-[0.5px] text-bet-text-xs;
+  }
+  .mob-dsec input[type="password"],
+  .mob-dsec input[type="text"],
+  .mob-dsec select {
+    @apply font-body text-sm px-2 py-1.5 border border-bet-border rounded-[3px] bg-white text-bet-text outline-none focus:border-bet-brand;
+  }
+  .mob-dsave {
+    @apply font-display text-xs font-bold tracking-[0.5px] uppercase bg-bet-brand text-white border border-bet-dk rounded-[3px] px-3 py-1.5 cursor-pointer self-start;
+  }
+
+  /* bottom sheet (alt-lines + future prop-alt) */
+  .mob-sheet-backdrop {
+    @apply fixed inset-0 bg-black/55 z-40 opacity-0 pointer-events-none transition-opacity duration-200;
+  }
+  .mob-sheet-backdrop.open { @apply opacity-100 pointer-events-auto; }
+  .mob-sheet {
+    @apply fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white rounded-t-[14px] z-50 max-h-[70vh] flex flex-col translate-y-full transition-transform duration-250;
+  }
+  .mob-sheet.open { @apply translate-y-0; }
+  .mob-sheet-handle {
+    @apply mx-auto mt-2 mb-1 w-10 h-1 rounded-full bg-bet-border;
+  }
+  .mob-sheet-hdr {
+    @apply px-4 py-2 font-display text-[12px] font-bold tracking-[0.8px] uppercase text-bet-text border-b border-bet-border;
+  }
+  .mob-sheet-body {
+    @apply overflow-y-auto flex-1;
+  }
+  /* alt-line row inside the sheet (spread/total/tt — single vig per line) */
+  .mob-sheet-row {
+    @apply flex items-center justify-between px-4 py-3 border-b border-black/5 cursor-pointer active:bg-bet-brand/10;
+  }
+  .mob-sheet-row.main { @apply bg-bet-accent/5; }
+  .mob-sheet-row.sel  { @apply bg-bet-brand text-white; }
+  .mob-sheet-row .mob-sheet-line {
+    @apply font-display font-semibold text-[14px];
+  }
+  .mob-sheet-row .mob-sheet-vig {
+    @apply font-display text-[12px] text-bet-text-sm;
+  }
+  .mob-sheet-row.sel .mob-sheet-vig { @apply text-[#aee]; }
+  /* 3-col prop-alt row inside the sheet (line / over / under) */
+  .mob-sheet-prow {
+    @apply grid items-center px-4 py-2.5 border-b border-black/5;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .mob-sheet-prow.main .mob-sheet-line { @apply text-bet-accent; }
+  .mob-sheet-prow .mob-sheet-vig-btn {
+    @apply font-display text-[12px] text-center py-2 rounded-[3px] border border-bet-border cursor-pointer active:bg-bet-brand/10;
+  }
+  .mob-sheet-prow .mob-sheet-vig-btn.sel {
+    @apply bg-bet-brand text-white border-bet-dk;
+  }
+  .mob-sheet-cols {
+    @apply grid px-4 py-1.5 bg-bet-alt text-[9px] font-display tracking-[0.5px] uppercase text-bet-text-xs border-b border-bet-border;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    text-align: center;
+  }
+
+  /* continue bar (floats above the bottom nav when slip/legs have selections) */
+  .mob-continue-bar {
+    @apply fixed bottom-[60px] left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-bet-darker border-t border-bet-accent px-3 py-2 z-30;
+  }
+  .mob-continue-bar.hidden { @apply hidden; }
+  .mob-continue-btn {
+    @apply w-full bg-bet-accent text-white font-display text-sm font-bold tracking-[0.5px] uppercase py-2.5 rounded-[3px] border-none cursor-pointer;
+  }
+
+  /* full-screen mobile overlay (My Bets + review screens) */
+  .mob-overlay {
+    @apply fixed inset-0 z-50 bg-bet-bg flex-col hidden;
+  }
+  .mob-overlay.open { @apply flex; }
+  .mob-overlay-hdr {
+    @apply bg-bet-darker text-white px-3 py-3 flex items-center gap-2 border-b-2 border-bet-accent;
+  }
+  .mob-overlay-hdr .mob-overlay-back {
+    @apply bg-transparent border-none text-white text-xl cursor-pointer p-0 leading-none;
+  }
+  .mob-overlay-hdr .mob-overlay-title {
+    @apply font-display text-sm font-bold tracking-[1px] uppercase;
+  }
+  .mob-overlay-body {
+    @apply flex-1 overflow-y-auto p-3;
+  }
+
+  /* mobile bet card (My Bets list) */
+  .mob-betcard {
+    @apply bg-white rounded-[6px] border border-bet-border p-3 mb-2.5 shadow-sm;
+  }
+  .mob-betcard-top {
+    @apply flex items-center justify-between mb-1;
+  }
+  .mob-betcard-name {
+    @apply font-display text-[13px] font-bold text-bet-text uppercase tracking-[0.5px];
+  }
+  .mob-betcard-st {
+    @apply font-display text-[10px] font-bold uppercase tracking-[0.5px] px-1.5 py-0.5 rounded-[3px];
+  }
+  .mob-betcard-st.pending { @apply bg-bet-alt text-bet-text-sm; }
+  .mob-betcard-st.won     { @apply bg-bet-green/15 text-bet-green; }
+  .mob-betcard-st.lost    { @apply bg-red-500/15 text-red-600; }
+  .mob-betcard-st.push    { @apply bg-bet-brand/15 text-bet-brand; }
+  /* Status icon (✓ / ✕ / ↺ / ⏱) — rendered as a CSS ::before pseudo-element
+     so it stays (a) outside the element's textContent (verify suite asserts
+     `.textContent === 'WON'` etc.), (b) presentational-only for screen
+     readers (pseudo-content is inherently invisible to a11y tree). One rule
+     pair drives both .betst (desktop) and .mob-betcard-st (mobile). */
+  .betst, .mob-betcard-st { @apply inline-flex items-center gap-[3px]; }
+  .betst::before, .mob-betcard-st::before {
+    @apply inline-block leading-none text-[11px];
+    content: '\1F551'; /* ⏱ default = pending */
+  }
+  .betst.won::before,  .mob-betcard-st.won::before  { content: '\2713'; } /* ✓ */
+  .betst.lost::before, .mob-betcard-st.lost::before { content: '\2715'; } /* ✕ */
+  .betst.push::before, .mob-betcard-st.push::before { content: '\21BA'; } /* ↺ */
+
+  /* ── DESKTOP bet card status pill (My Bets modal) ── */
+  .betst {
+    @apply font-display text-[10px] font-bold uppercase tracking-[0.5px] px-1.5 py-0.5 rounded-[3px];
+  }
+  .betst.pending { @apply bg-bet-alt text-bet-text-sm; }
+  .betst.won     { @apply bg-bet-green/15 text-bet-green; }
+  .betst.lost    { @apply bg-red-500/15 text-red-600; }
+  .betst.push    { @apply bg-bet-brand/15 text-bet-brand; }
+  .mob-betcard-meta {
+    @apply text-[10px] text-bet-text-xs mb-1.5;
+  }
+  .mob-betcard-legs {
+    @apply text-[11px] text-bet-text mb-1.5 border-t border-bet-border pt-1.5;
+  }
+  .mob-betcard-legrow { @apply mb-0.5 leading-tight; }
+  .mob-betcard-amts {
+    @apply grid grid-cols-2 gap-2 mt-1.5 pt-1.5 border-t border-bet-border;
+  }
+  .mob-betcard-amt {
+    @apply flex flex-col;
+  }
+  .mob-betcard-amt label {
+    @apply text-[9px] font-display uppercase tracking-[0.5px] text-bet-text-xs;
+  }
+  .mob-betcard-amt .v {
+    @apply font-display text-[13px] font-bold;
+  }
+  .mob-betcard-amt .v.r { @apply text-red-600; }
+  .mob-betcard-amt .v.g { @apply text-bet-green; }
+  .mob-betcard-settle {
+    @apply grid grid-cols-3 gap-1.5 mt-2 pt-2 border-t border-bet-border;
+  }
+  .mob-settle-btn {
+    @apply font-display text-[11px] font-bold uppercase tracking-[0.5px] py-1.5 rounded-[3px] border cursor-pointer;
+  }
+  .mob-settle-btn.won  { @apply bg-bet-green/10 border-bet-green text-bet-green active:bg-bet-green/20; }
+  .mob-settle-btn.push { @apply bg-bet-brand/10 border-bet-brand text-bet-brand active:bg-bet-brand/20; }
+  .mob-settle-btn.lost { @apply bg-red-500/10 border-red-500 text-red-600 active:bg-red-500/20; }
+  .mob-bets-empty {
+    @apply text-center text-bet-text-xs italic py-10;
+  }
+
+  /* mobile review screen (used by all 4 modes) */
+  .mob-rv-card {
+    @apply bg-white rounded-[6px] border border-bet-border p-3 mb-2.5;
+  }
+  .mob-rv-leg {
+    @apply grid items-center py-1.5 border-t border-black/5;
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+  }
+  .mob-rv-leg:first-of-type { @apply border-t-0; }
+  .mob-rv-leg-num {
+    @apply font-display text-[11px] font-bold text-bet-accent text-center;
+  }
+  .mob-rv-leg-info { @apply min-w-0; }
+  .mob-rv-leg-team {
+    @apply font-body text-[12px] font-medium text-bet-text truncate;
+  }
+  .mob-rv-leg-sub {
+    @apply font-display text-[10px] text-bet-text-xs uppercase tracking-[0.5px];
+  }
+  .mob-rv-leg-odds {
+    @apply font-display text-[12px] font-bold text-bet-text;
+  }
+  .mob-rv-leg-rm {
+    @apply bg-transparent border-none text-red-500 text-base cursor-pointer p-1 leading-none;
+  }
+  .mob-rv-row {
+    @apply flex items-center justify-between gap-2 py-1.5 border-t border-black/5;
+  }
+  .mob-rv-row:first-child { @apply border-t-0; }
+  .mob-rv-row label {
+    @apply font-display text-[10px] uppercase tracking-[0.5px] text-bet-text-xs;
+  }
+  .mob-rv-row input {
+    @apply font-display text-sm font-bold text-right px-2 py-1 border border-bet-border rounded-[3px] w-[110px] outline-none focus:border-bet-brand;
+  }
+  .mob-rv-row .v { @apply font-display text-sm font-bold; }
+  .mob-rv-row .v.r { @apply text-red-600; }
+  .mob-rv-row .v.g { @apply text-bet-green; }
+  .mob-rv-val {
+    @apply text-[10px] text-red-600 px-3 pb-1;
+  }
+  .mob-rv-confirm {
+    @apply w-full mt-3 bg-bet-accent text-white font-display text-sm font-bold tracking-[0.5px] uppercase py-3 rounded-[4px] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .mob-rv-empty {
+    @apply text-center text-bet-text-xs italic py-6;
+  }
+
+  /* ─── MOBILE PLAYER PROPS ──────────────────────────────────────────
+     Stacked rows beneath each game card. One section per game, with a
+     teal banner header and per-prop mini cards. Each prop card has two
+     rows (Over + Under) laid out as [info-on-left] / [button-on-right]. */
+  .mob-prop-section {
+    /* Was bg-white — matches the .mob-gcard fix; the prop section sits below
+       the game card and needs the same muted page bg so the two surfaces feel
+       continuous. The .mob-prop-banner (teal) and .mob-prop-card-hdr
+       (bg-bet-alt) supply their own contrast strips. */
+    @apply bg-bet-bg border-t-2 border-bet-accent/30;
+  }
+  .mob-prop-banner {
+    @apply bg-bet-brand text-white font-display text-[11px] font-bold tracking-[0.5px] uppercase px-3 py-2;
+  }
+  .mob-prop-card {
+    @apply border-t border-bet-border;
+  }
+  .mob-prop-card-hdr {
+    @apply bg-bet-alt px-3 py-1.5 flex items-center gap-2 text-[10px] text-bet-text-sm border-b border-black/5;
+  }
+  .mob-prop-card-hdr .mob-prop-time {
+    @apply font-display font-bold text-bet-text uppercase tracking-[0.5px];
+  }
+  .mob-prop-card-hdr .mob-prop-desc {
+    @apply truncate;
+  }
+  .mob-prop-row {
+    @apply grid items-center px-3 py-2 border-t border-black/5;
+    grid-template-columns: 1fr 90px;
+    gap: 8px;
+  }
+  .mob-prop-row:first-of-type { @apply border-t-0; }
+  .mob-prop-info {
+    @apply flex items-center gap-2 min-w-0;
+  }
+  .mob-prop-id {
+    @apply font-display text-[10px] text-bet-text-xs tabular-nums shrink-0;
+  }
+  .mob-prop-name {
+    @apply font-body text-[13px] text-bet-text font-medium truncate;
+  }
+  .mob-prop-cell {
+    @apply relative flex items-center justify-end gap-1;
+  }
+  .mob-prop-btn {
+    @apply flex-1 bg-white border border-bet-border rounded-[3px] py-1 px-1 font-body text-[11px] text-bet-text cursor-pointer text-center min-h-[36px] flex flex-col items-center justify-center leading-tight;
+  }
+  .mob-prop-btn:active { @apply bg-bet-brand/10; }
+  .mob-prop-btn.sel { @apply bg-bet-brand border-bet-dk text-white; }
+  .mob-prop-btn .mob-prop-line { @apply font-display font-semibold text-[12px]; }
+  .mob-prop-btn .mob-prop-vig  { @apply text-[10px] text-bet-text-sm; }
+  .mob-prop-btn.sel .mob-prop-vig { @apply text-[#aee]; }
+
+  /* ─── LOGIN SPLASH (player + agent share these classes) ──────────────────
+     Hidden by default; .show makes it cover the viewport. Centered card on
+     bet-bg with Barlow Condensed title and a simple two-field form. Any
+     non-empty Login ID is accepted by the entry script. */
+  .login-splash {
+    @apply fixed inset-0 z-50 hidden items-center justify-center bg-bet-bg/95 backdrop-blur-sm;
+  }
+  .login-splash.show { @apply flex; }
+  .login-card {
+    @apply bg-white border border-bet-border rounded-lg shadow-card-hover w-[360px] max-w-[90vw] p-6 flex flex-col gap-4;
+  }
+  .login-brand {
+    @apply font-display text-3xl font-bold tracking-wider text-bet-darker text-center;
+  }
+  .login-brand span { @apply text-bet-accent; }
+  .login-sub {
+    @apply text-bet-text-sm text-center text-sm -mt-2;
+  }
+  .login-form { @apply flex flex-col gap-2; }
+  .login-form label {
+    @apply font-display text-[11px] uppercase tracking-wider text-bet-text-sm mt-2;
+  }
+  .login-form input {
+    @apply border border-bet-border rounded px-3 py-2 text-sm bg-bet-alt focus:bg-white focus:outline-none focus:border-bet-accent;
+  }
+  .login-btn {
+    @apply mt-3 bg-bet-darker text-white font-display font-bold uppercase tracking-wider py-2 rounded cursor-pointer hover:bg-bet-dk;
+  }
+  .login-note {
+    @apply text-bet-text-xs italic text-[10px] text-center mt-1;
+  }
+  .login-footer {
+    @apply text-bet-text-sm text-xs text-center border-t border-bet-border pt-3;
+  }
+  .login-footer a { @apply text-bet-accent-dk hover:underline; }
+
+  /* Logout button in the agent top bar */
+  .ag-logout {
+    @apply ml-2 bg-transparent border border-white/40 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-white/10;
+  }
+
+  /* ─── AGENT VIEW (bookie-side portal) ─────────────────────────────────────
+     Standalone agent.html entry. Mirrors LC797's /partner/ subdir layout.
+     Live scoreboard intentionally omitted. See AGENT_RECON.md. */
+  .agent-view {
+    @apply flex-1 overflow-y-auto bg-bet-bg;
+  }
+  .ag-shell        { @apply flex flex-col h-full; }
+  .ag-topbar       { @apply bg-bet-darker text-white px-4 py-2 flex items-center gap-4 flex-shrink-0; }
+  .ag-id           { @apply font-display text-lg font-bold tracking-wider; }
+  .ag-bal          { @apply font-display text-sm text-bet-text-xs; }
+  .ag-bal-val      { @apply text-white font-bold; }
+  .ag-crumb        { @apply font-body text-xs text-bet-text-xs ml-auto; }
+  .ag-crumb-sub    { @apply font-body text-sm text-bet-text; }
+  .ag-crumb-sub b  { @apply text-bet-darker; }
+  .ag-subhdr       { @apply bg-bet-darker text-white px-4 py-2 flex items-center gap-3 flex-shrink-0; }
+  .ag-subhdr .ag-crumb-sub { @apply text-bet-text-xs; }
+  .ag-subhdr .ag-crumb-sub b { @apply text-white; }
+  .ag-subhdr-actions { @apply ml-auto flex gap-2; }
+  .ag-back         { @apply bg-transparent border border-white/40 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-white/10; }
+  .ag-action       { @apply bg-bet-panel border border-bet-border text-bet-text text-xs px-3 py-1 rounded cursor-pointer hover:bg-white; }
+
+  .ag-body         { @apply flex flex-1 overflow-hidden; }
+  .ag-main         { @apply flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-w-0; }
+  .ag-rail         { @apply w-[280px] border-l border-bet-border bg-bet-panel flex flex-col flex-shrink-0; }
+  .ag-rail-tabs    { @apply flex border-b border-bet-border; }
+  .ag-rail-tab     { @apply flex-1 text-center font-display text-xs uppercase tracking-wider py-2 cursor-pointer text-bet-text-sm; }
+  .ag-rail-tab.active { @apply text-bet-darker border-b-2 border-bet-accent; }
+  .ag-rail-body    { @apply p-3 flex flex-col gap-2 overflow-y-auto; }
+  .ag-rail-search  { @apply w-full px-2 py-1 text-xs border border-bet-border rounded bg-white; }
+  .ag-hier-row     { @apply flex justify-between text-sm px-2 py-1 hover:bg-bet-alt rounded cursor-pointer; }
+  .ag-hier-name    { @apply font-display font-semibold text-bet-darker; }
+  .ag-hier-cnt     { @apply text-bet-text-xs text-xs; }
+
+  .ag-search       { @apply flex gap-2 items-center; }
+  .ag-search-inp   { @apply flex-1 px-3 py-2 border border-bet-border rounded bg-white text-sm; }
+  .ag-addnew       { @apply bg-bet-green text-white font-display font-bold text-xs uppercase tracking-wider px-4 py-2 rounded cursor-pointer hover:opacity-90; }
+
+  .ag-kpi          { @apply grid grid-cols-4 gap-0 bg-[#cfe1e6] rounded overflow-hidden border border-bet-border; }
+  .ag-kpi-cell     { @apply px-4 py-3 text-center border-r border-bet-border last:border-r-0; }
+  .ag-kpi-cell label { @apply block font-display text-[10px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-kpi-val      { @apply font-display text-lg font-bold text-bet-darker tabular-nums; }
+
+  .ag-cs           { @apply bg-bet-red text-white text-center font-display font-bold uppercase tracking-wider py-2 rounded text-sm cursor-pointer hover:opacity-90; }
+  .ag-feedback     { @apply bg-bet-darker text-white text-center font-display font-bold uppercase tracking-wider py-2 rounded text-sm cursor-pointer hover:opacity-90; }
+
+  .ag-grid         { @apply grid grid-cols-3 gap-2; }
+  .ag-tile         { @apply bg-white border border-bet-border rounded p-4 flex flex-col items-center gap-2 cursor-pointer hover:shadow-card-hover transition-shadow; }
+  .ag-tile-icon    { @apply text-2xl; }
+  .ag-tile-label   { @apply font-display text-xs uppercase tracking-wider text-bet-text font-semibold; }
+  .ag-tile.tile-blue   .ag-tile-icon { @apply text-blue-600; }
+  .ag-tile.tile-purple .ag-tile-icon { @apply text-purple-600; }
+  .ag-tile.tile-amber  .ag-tile-icon { @apply text-amber-500; }
+  .ag-tile.tile-red    .ag-tile-icon { @apply text-bet-red; }
+  .ag-tile.tile-green  .ag-tile-icon { @apply text-bet-green; }
+  .ag-tile.tile-teal   .ag-tile-icon { @apply text-teal-600; }
+  .ag-tile.tile-navy   .ag-tile-icon { @apply text-bet-darker; }
+  .ag-tile.tile-orange .ag-tile-icon { @apply text-orange-600; }
+
+  .ag-widget       { @apply bg-white border border-bet-border rounded; }
+  .ag-widget summary { @apply bg-bet-darker text-white font-display text-xs uppercase tracking-wider px-3 py-2 cursor-pointer list-none; }
+  .ag-widget summary::-webkit-details-marker { display: none; }
+  .ag-widget summary::after { content: " ▾"; @apply float-right; }
+  .ag-widget[open] summary::after { content: " ▴"; }
+  .ag-wrow         { @apply grid gap-2 px-3 py-1.5 text-xs border-t border-bet-alt; grid-template-columns: 80px 60px 1fr 80px; }
+  .ag-wmono        { @apply font-mono text-bet-text-sm; }
+  .ag-wamt         { @apply text-right tabular-nums font-semibold; }
+  .ag-wdate        { @apply text-right text-bet-text-xs tabular-nums; }
+  .ag-empty        { @apply text-bet-text-xs italic text-center py-3 text-xs; }
+
+  /* Management table */
+  .ag-table-wrap   { @apply flex-1 overflow-auto bg-white; }
+  .ag-table        { @apply w-full text-sm border-collapse; }
+  .ag-table thead th { @apply bg-bet-panel text-bet-darker font-display text-[11px] uppercase tracking-wider px-2 py-2 border-b-2 border-bet-border text-left sticky top-0 z-10; }
+  .ag-table tbody td { @apply px-2 py-1.5 border-b border-bet-alt; }
+  .ag-table tbody tr:nth-child(even) { @apply bg-bet-alt/40; }
+  .ag-table tbody tr:hover { @apply bg-bet-accent/10; }
+  .ag-table tfoot th, .ag-table tfoot td { @apply px-2 py-2 font-display font-bold text-bet-darker bg-bet-panel border-t-2 border-bet-border; }
+  .ag-table .num   { @apply text-right tabular-nums; }
+  .ag-pid          { @apply font-display; }
+  .ag-mono         { @apply font-mono text-bet-text-xs; }
+  .ag-link         { @apply underline decoration-dotted underline-offset-2 cursor-pointer text-bet-darker hover:text-bet-accent; }
+  .ag-dim          { @apply text-bet-text-xs; }
+  .ag-pos          { @apply text-bet-green; }
+  .ag-neg          { @apply text-bet-red; }
+
+  .ag-pill         { @apply inline-block min-w-[36px] text-center font-display text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border; }
+  .ag-pill.on      { @apply bg-bet-green text-white border-bet-green; }
+  .ag-pill.off     { @apply bg-white text-bet-text-xs border-bet-border; }
+  .ag-pill-racing.on, .ag-pill-casino.on { @apply bg-amber-400 text-bet-darker border-amber-500; }
+
+  /* Stub view for unimplemented tiles */
+  .ag-stub         { @apply flex flex-col items-center justify-center gap-3 p-12 text-center; }
+  .ag-stub-icon    { @apply text-5xl; }
+  .ag-stub-title   { @apply font-display text-2xl font-bold text-bet-darker uppercase tracking-wider; }
+  .ag-stub-msg     { @apply text-bet-text-sm text-sm max-w-md; }
+
+  /* ─── CUSTOMER DETAIL VIEW ────────────────────────────────────────────────
+     Reached by clicking a player ID in Management. Multi-tab editor (3 real,
+     8 stubs). Display-only first pass — SAVE button disabled, inputs are
+     rendered as text. */
+  .ag-prow         { @apply cursor-pointer; }
+  .ag-cust-hdr     { @apply bg-bet-darker text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 border-t border-white/10; }
+  .ag-cust-id      { @apply font-display text-xl font-bold tracking-wider mr-2; }
+  .ag-cust-pills   { @apply flex gap-2 flex-wrap flex-1; }
+  .ag-cust-pill    { @apply flex flex-col items-center gap-0.5 px-3 py-1 bg-white/5 rounded border border-white/10; }
+  .ag-cust-pill-lbl { @apply font-display text-[9px] uppercase tracking-wider text-white/60; }
+  .ag-cust-pill-val { @apply font-display text-sm font-semibold text-white tabular-nums; }
+  .ag-cust-pill-val.ag-pos { @apply text-green-300; }
+  .ag-cust-pill-val.ag-neg { @apply text-red-300; }
+  .ag-cust-save    { @apply bg-bet-green/60 text-white/60 font-display font-bold uppercase tracking-wider px-4 py-1.5 rounded text-xs cursor-not-allowed; }
+
+  .ag-cust-tabs    { @apply flex bg-bet-panel border-b border-bet-border overflow-x-auto flex-shrink-0; }
+  .ag-cust-tab     { @apply flex items-center gap-1.5 px-3 py-2 font-display text-xs uppercase tracking-wider text-bet-text-sm border-b-2 border-transparent cursor-pointer bg-transparent whitespace-nowrap hover:text-bet-darker; }
+  .ag-cust-tab.active { @apply text-bet-darker border-bet-accent; }
+  .ag-cust-tab.stub { @apply text-bet-text-xs italic; }
+  .ag-cust-tab-icon { @apply text-sm; }
+
+  .ag-cust-body    { @apply flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-bet-bg; }
+  .ag-back-row     { @apply flex-shrink-0; }
+  .ag-cust-body .ag-back { @apply bg-bet-panel text-bet-text border border-bet-border hover:bg-white; }
+
+  /* Personal tab */
+  .ag-personal     { @apply grid grid-cols-2 gap-4; }
+  .ag-personal-col { @apply bg-white border border-bet-border rounded p-3 flex flex-col gap-1.5; }
+  .ag-sect-hdr     { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5 -mx-3 first:-mt-3 mt-2 mb-1; }
+  .ag-frow         { @apply grid items-center gap-2 px-1 py-1 border-b border-bet-alt last:border-b-0 text-sm; grid-template-columns: 130px 12px 1fr; }
+  .ag-flabel       { @apply font-display text-[11px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-fsep         { @apply text-bet-text-xs text-center; }
+  .ag-fval         { @apply text-bet-text font-medium text-sm break-words; }
+  .ag-mono-num     { @apply font-mono tabular-nums text-bet-green; }
+  .ag-status       { @apply inline-block font-display font-bold text-xs uppercase tracking-wider px-2 py-0.5 rounded; }
+  .ag-status.ok    { @apply bg-bet-green/15 text-bet-green; }
+  .ag-status.bad   { @apply bg-bet-red/15 text-bet-red; }
+  .ag-pill-mailbox.on { @apply bg-bet-green text-white border-bet-green; }
+
+  /* Limits tab */
+  .ag-limits       { @apply flex flex-col gap-4; }
+  .ag-lim-cards    { @apply grid grid-cols-2 gap-4; }
+  .ag-lim-card     { @apply bg-white border border-bet-border rounded overflow-hidden; }
+  .ag-lim-hdr      { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5; }
+  .ag-lim-row      { @apply px-3; }
+  .ag-lim-chart    { @apply bg-white border border-bet-border rounded overflow-hidden; }
+  .ag-lim-chart-hdr { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5; }
+  .ag-lim-table    { @apply w-full text-sm border-collapse; }
+  .ag-lim-table thead th { @apply bg-bet-panel text-bet-darker font-display text-[10px] uppercase tracking-wider px-3 py-2 border-b border-bet-border text-left; }
+  .ag-lim-table tbody td { @apply px-3 py-2 border-b border-bet-alt; }
+  .ag-lim-table tbody tr:last-child td { @apply border-b-0; }
+  .ag-lim-table .num { @apply text-right tabular-nums font-mono text-bet-green; }
+
+  /* Wager tab */
+  .ag-wager        { @apply flex flex-col gap-3; }
+  .ag-wfilters     { @apply bg-white border border-bet-border rounded p-3 flex items-center gap-3 flex-wrap; }
+  .ag-wf-lbl       { @apply font-display text-[10px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-wf-inp       { @apply border border-bet-border rounded px-2 py-1 text-sm w-32; }
+  .ag-wf-cell      { @apply flex flex-col gap-0.5; }
+  .ag-wf-cell label { @apply font-display text-[9px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-wf-sel       { @apply border border-bet-border rounded px-2 py-1 text-sm bg-white; }
+  .ag-wager-empty  { @apply bg-white border border-bet-border rounded text-center py-12 text-bet-text-sm italic; }
+  .ag-wager-table  { @apply w-full bg-white border border-bet-border rounded text-sm border-collapse overflow-hidden; }
+  .ag-wager-table thead th { @apply bg-bet-panel text-bet-darker font-display text-[10px] uppercase tracking-wider px-2 py-2 border-b border-bet-border text-left; }
+  .ag-wager-table tbody td { @apply px-2 py-1.5 border-b border-bet-alt; }
+  .ag-wager-table .num { @apply text-right tabular-nums; }
+  .ag-wres         { @apply inline-block font-display text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border; }
+  .ag-wres-pending { @apply bg-amber-100 text-amber-800 border-amber-300; }
+  .ag-wres-win     { @apply bg-green-100 text-green-800 border-green-300; }
+  .ag-wres-loss    { @apply bg-red-100 text-red-800 border-red-300; }
+}

@@ -1,0 +1,5 @@
+      input: {
+        main:   resolve(__dirname, 'index.html'),
+        mobile: resolve(__dirname, 'index_mobile.html'),
+        agent:  resolve(__dirname, 'agent.html'),
+      },

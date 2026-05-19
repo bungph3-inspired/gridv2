@@ -1,0 +1,6 @@
+<!-- Mock data fixture (sibling file from BetSim v1 (legacy), copied to public/).
+     If missing, Mock Mode toggle stays disabled in Settings. -->
+<script src="/mock_data.js" onerror="window.__noMockData=true"></script>
+
+<!-- Desktop entry -->
+<script type="module" src="/src/main.js"></script>

@@ -1,0 +1,12 @@
+function init() {
+  // Login gate: if no player session, show splash and bail until login.
+  const pid = localStorage.getItem('bs_player');
+  if (!pid) {
+    document.getElementById('login-splash').classList.add('show');
+    return;
+  }
+  setAccountDisp(pid);
+  updateBalDisp();
+  updateBetsBtn();
+  renderSidebar();
+  setMode("straight");

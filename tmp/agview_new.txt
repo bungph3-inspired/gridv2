@@ -1,0 +1,8 @@
+  </div>
+
+  <!-- AGENT VIEW (bookie-side portal) — hidden by default; toggled by header
+       button. See AGENT_RECON.md for the LC797 source-of-truth recon. Live
+       scoreboard explicitly excluded from this build. -->
+  <div class="agent-view hidden" id="agent-view"></div>
+
+</div><!-- /app -->

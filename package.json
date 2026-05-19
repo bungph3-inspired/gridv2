@@ -1,0 +1,21 @@
+{
+  "name": "gridv2",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "GridV2 — Tailwind v4 + Vite single-page app (formerly BetSimV2).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "logos": "node scripts/fetch_logos.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

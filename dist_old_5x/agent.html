@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="GridV2 Agent Portal — bookie-side dashboard. Entertainment-only.">
+  <title>GridV2 · Agent Portal</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <!-- Fonts (matches player side) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/agent-BfzU-A9I.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/utils-DCdIuAwr.js">
+  <link rel="stylesheet" crossorigin href="/assets/utils-LYhlDxTJ.css">
+</head>
+<body>
+
+<div id="agent-app" class="flex flex-col h-full">
+
+  <!-- LOGIN SPLASH — shown until localStorage 'bs_agent' is set.
+       Fake auth: any non-empty Login ID works. -->
+  <div class="login-splash show" id="login-splash">
+    <div class="login-card">
+      <div class="login-brand">Bet<span>Sim</span></div>
+      <div class="login-sub">Agent / Partner Portal</div>
+      <form class="login-form" id="login-form" onsubmit="return submitAgentLogin(event)">
+        <label for="login-id">Login ID</label>
+        <input type="text" id="login-id" autocomplete="username" placeholder="e.g. NUBI004" required>
+        <label for="login-pw">Password</label>
+        <input type="password" id="login-pw" autocomplete="current-password" placeholder="any value works">
+        <button type="submit" class="login-btn">Sign In</button>
+        <div class="login-note">Demo only · any credentials are accepted</div>
+      </form>
+      <div class="login-footer">
+        Are you a player? <a href="/index.html">Sign in here</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disc"><b>⚠ ENTERTAINMENT ONLY</b> — Virtual currency only. No real money involved. Not affiliated with any gambling operation.</div>
+
+  <!-- AGENT VIEW container — populated by src/agent.js after login -->
+  <div class="agent-view" id="agent-view"></div>
+
+</div>
+
+<!-- Mock data fixture, loaded before main script so agent.js can read window.AGENT_MOCK -->
+<script src="/agent_mock.js" onerror="window.__noAgentMock=true"></script>
+
+<!-- Agent entry -->
+</body>
+</html>

@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GridV2 — Hold % Display Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bet-darker: #172d33;
+    --bet-brand:   #1f4854;
+    --bet-brand-2: #2a5d6b;
+    --bet-accent: #e87722;
+    --bet-bg:     #f3f4f3;
+    --bet-card:   #ffffff;
+    --bet-line:   #d8dcdb;
+    --bet-text:   #1a1f21;
+    --bet-muted:  #6b7674;
+    --hold-good:  #157f3c;
+    --hold-mid:   #a36a0b;
+    --hold-bad:   #b03030;
+    --hold-good-bg: #e3f3e9;
+    --hold-mid-bg:  #fbeed1;
+    --hold-bad-bg:  #f7dada;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background: var(--bet-bg); color: var(--bet-text); font-family: 'Barlow', system-ui, sans-serif; font-size: 14px; }
+  .page { max-width: 980px; margin: 0 auto; padding: 24px 18px 60px; }
+
+  /* Page chrome */
+  .pgttl { font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:28px; letter-spacing:.5px; color: var(--bet-darker); margin: 0 0 4px; }
+  .pgsub { color: var(--bet-muted); margin: 0 0 22px; font-size: 13px; }
+  .variant-hdr { display:flex; align-items:baseline; gap:10px; margin: 28px 0 10px; }
+  .variant-hdr h2 { font-family:'Barlow Condensed', sans-serif; font-weight:700; font-size:18px; letter-spacing:.4px; color: var(--bet-darker); margin: 0; text-transform: uppercase; }
+  .variant-hdr .tag { font-family:'Barlow Condensed', sans-serif; font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--bet-accent); color:#fff; letter-spacing:.5px; }
+  .variant-hdr .note { color: var(--bet-muted); font-size: 12px; }
+
+  /* Board */
+  .board { background: var(--bet-card); border: 1px solid var(--bet-line); border-radius: 4px; overflow: hidden; }
+
+  /* Sub-header strip (league + col labels) */
+  .colhdr {
+    display: grid;
+    grid-template-columns: 1fr 100px 100px 100px;
+    background: var(--bet-darker);
+    color: #cfd6d5;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    padding: 7px 12px;
+  }
+  .colhdr .lbl { text-align: center; }
+  .colhdr .lbl.left { text-align: left; }
+  .colhdr .lbl small {
+    display: block;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: .3px;
+    color: #93a4a2;
+    margin-top: 1px;
+    text-transform: none;
+  }
+
+  /* Game block */
+  .gblock { border-bottom: 1px solid var(--bet-line); }
+  .gblock:last-child { border-bottom: 0; }
+  .ginfo { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #ecefee; font-size: 12px; color: var(--bet-muted); border-bottom: 1px solid var(--bet-line); }
+  .ginfo .gid { font-family: 'Barlow Condensed', sans-serif; letter-spacing: .4px; }
+  .ginfo .gtime { font-family: 'Barlow', sans-serif; }
+  .trow { display: grid; grid-template-columns: 1fr 100px 100px 100px; align-items: center; padding: 6px 12px; }
+  .trow + .trow { border-top: 1px solid #eef0ef; }
+  .tname { font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 14px; color: var(--bet-text); }
+  .obtn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid var(--bet-line); border-radius: 3px;
+    padding: 5px 6px; cursor: pointer; min-height: 38px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: .3px;
+  }
+  .obtn:hover { border-color: var(--bet-accent); }
+  .obtn .line { font-size: 13px; color: var(--bet-text); }
+  .obtn .vig  { font-size: 11px; color: var(--bet-muted); margin-top: 1px; }
+
+  /* Hold badges & chips */
+  .hbadge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
+    font-size: 11px; letter-spacing: .4px;
+    padding: 2px 7px; border-radius: 99px;
+    border: 1px solid transparent;
+    text-transform: uppercase;
+  }
+  .hbadge.good { background: var(--hold-good-bg); color: var(--hold-good); border-color: #b9dfc6; }
+  .hbadge.mid  { background: var(--hold-mid-bg);  color: var(--hold-mid);  border-color: #ecd49e; }
+  .hbadge.bad  { background: var(--hold-bad-bg);  color: var(--hold-bad);  border-color: #ecbcbc; }
+
+  /* Variant A — Hold % in column headers */
+  .colhdr-A .lbl .h {
+    display: block;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: .3px;
+    color: #9ce0b3;
+    margin-top: 2px;
+    text-transform: none;
+  }
+
+  /* Variant B — Hold % per game */
+  .ginfo .ghold {
+    display:flex; align-items:center; gap:6px;
+  }
+  .ginfo .ghold span.l { font-family: 'Barlow Condensed', sans-serif; font-size: 10px; letter-spacing:.6px; color: var(--bet-muted); text-transform: uppercase; }
+
+  /* Variant C — Hold % per market cell (inline) */
+  .obtn.with-h { padding-top: 3px; }
+  .obtn .cellh {
+    display: inline-block; font-family: 'Barlow Condensed', sans-serif;
+    font-size: 9.5px; letter-spacing: .4px; padding: 1px 5px;
+    border-radius: 99px; margin-top: 3px;
+    background: var(--hold-good-bg); color: var(--hold-good);
+  }
+  .obtn .cellh.mid { background: var(--hold-mid-bg); color: var(--hold-mid); }
+  .obtn .cellh.bad { background: var(--hold-bad-bg); color: var(--hold-bad); }
+
+  /* Side rail (parlay slip mock) */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+    align-items: start;
+  }
+  .layout.no-rail { grid-template-columns: 1fr; }
+  .rail {
+    background: var(--bet-card); border: 1px solid var(--bet-line); border-radius: 4px;
+    overflow: hidden;
+  }
+  .rail-hdr {
+    background: var(--bet-darker); color: #fff;
+    padding: 9px 12px; font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; letter-spacing: .6px; font-size: 14px; text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .rail-body { padding: 10px 12px 14px; }
+  .pleg { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 1px dashed #e2e6e5; font-size: 13px; }
+  .pleg:last-of-type { border-bottom: 0; }
+  .pleg .ptitle { font-weight: 600; }
+  .pleg .pmkt   { font-size: 11.5px; color: var(--bet-muted); margin-top: 1px; }
+  .pleg .podds  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; }
+
+  .summary { margin-top: 6px; padding-top: 10px; border-top: 2px solid var(--bet-darker); }
+  .sumrow { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+  .sumrow.bold { font-weight: 700; }
+  .sumrow .lbl { color: var(--bet-muted); font-family:'Barlow Condensed', sans-serif; letter-spacing:.4px; text-transform: uppercase; font-size: 11.5px; }
+  .sumrow .val { font-family: 'Barlow', sans-serif; }
+  .slip-hold-callout {
+    margin-top: 10px;
+    background: #fdf1e6; border: 1px solid #f4c79b; border-radius: 4px;
+    padding: 8px 10px; font-size: 12px; color: #6b3a10;
+  }
+  .slip-hold-callout b { color: var(--bet-accent); }
+
+  /* Legend */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 14px 0 0; }
+  .legend .li { display:flex; align-items:center; gap:6px; font-size: 12px; color: var(--bet-muted); }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.08); }
+  .swatch.good { background: var(--hold-good-bg); }
+  .swatch.mid  { background: var(--hold-mid-bg); }
+  .swatch.bad  { background: var(--hold-bad-bg); }
+
+  .footnote { color: var(--bet-muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="pgttl">GridV2 — Hold % Display Mockup</h1>
+  <p class="pgsub">Three options for surfacing hold on the odds board, plus a slip-level "Total Hold" pattern for the parlay rail. Color coding: green &lt;3%, amber 3–6%, red 6%+.</p>
+
+  <div class="legend">
+    <div class="li"><span class="swatch good"></span>Under 3% (sharp)</div>
+    <div class="li"><span class="swatch mid"></span>3–6% (standard)</div>
+    <div class="li"><span class="swatch bad"></span>6%+ (juicy)</div>
+  </div>
+
+  <!-- ============ VARIANT A ============ -->
+  <div class="variant-hdr">
+    <h2>Variant A — Hold % in column header</h2>
+    <span class="tag">RECOMMENDED</span>
+    <span class="note">One number per market column. Cleanest. Mirrors Pinnacle's market-tier transparency.</span>
+  </div>
+
+  <div class="layout no-rail">
+    <div class="board">
+      <div class="colhdr colhdr-A">
+        <div class="lbl left">NBA — PLAYOFFS</div>
+        <div class="lbl">SPREAD <span class="h">hold 2.1%</span></div>
+        <div class="lbl">MONEYLINE <span class="h">hold 2.4%</span></div>
+        <div class="lbl">TOTAL <span class="h">hold 2.6%</span></div>
+      </div>
+
+      <div class="gblock">
+        <div class="ginfo">
+          <span class="gid">#501 / #502</span>
+          <span class="gtime">Tue · 7:10p PT · ESPN</span>
+        </div>
+        <div class="trow">
+          <div class="tname">LA Lakers</div>
+          <div class="obtn"><span class="line">+15.5</span><span class="vig">-107</span></div>
+          <div class="obtn"><span class="line">+1100</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">o 226.5</span><span class="vig">-108</span></div>
+        </div>
+        <div class="trow">
+          <div class="tname">Oklahoma City</div>
+          <div class="obtn"><span class="line">-15.5</span><span class="vig">-110</span></div>
+          <div class="obtn"><span class="line">-1450</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">u 226.5</span><span class="vig">-104</span></div>
+        </div>
+      </div>
+
+      <div class="gblock">
+        <div class="ginfo">
+          <span class="gid">#503 / #504</span>
+          <span class="gtime">Tue · 7:40p PT · TNT</span>
+        </div>
+        <div class="trow">
+          <div class="tname">New York</div>
+          <div class="obtn"><span class="line">-2.5</span><span class="vig">-106</span></div>
+          <div class="obtn"><span class="line">-138</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">o 213.5</span><span class="vig">-110</span></div>
+        </div>
+        <div class="trow">
+          <div class="tname">Philadelphia</div>
+          <div class="obtn"><span class="line">+2.5</span><span class="vig">-108</span></div>
+          <div class="obtn"><span class="line">+118</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">u 213.5</span><span class="vig">-102</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="footnote">Pros: out of the way, one glance to assess the whole board. Cons: doesn't show variation within a market (e.g. a juicier alt line).</p>
+
+
+  <!-- ============ VARIANT B ============ -->
+  <div class="variant-hdr">
+    <h2>Variant B — Hold % per game row</h2>
+    <span class="note">In the gray game-info bar. Useful when different games carry different margins (futures, niche leagues).</span>
+  </div>
+
+  <div class="board">
+    <div class="colhdr">
+      <div class="lbl left">NBA — PLAYOFFS</div>
+      <div class="lbl">SPREAD <small>line · vig</small></div>
+      <div class="lbl">MONEYLINE</div>
+      <div class="lbl">TOTAL <small>line · vig</small></div>
+    </div>
+
+    <div class="gblock">
+      <div class="ginfo">
+        <span class="gid">#501 / #502 · Lakers @ OKC</span>
+        <span class="ghold">
+          <span class="l">Hold</span>
+          <span class="hbadge good">SPR 2.1%</span>
+          <span class="hbadge good">ML 2.4%</span>
+          <span class="hbadge good">TOT 2.6%</span>
+        </span>
+      </div>
+      <div class="trow">
+        <div class="tname">LA Lakers</div>
+        <div class="obtn"><span class="line">+15.5</span><span class="vig">-107</span></div>
+        <div class="obtn"><span class="line">+1100</span><span class="vig">&nbsp;</span></div>
+        <div class="obtn"><span class="line">o 226.5</span><span class="vig">-108</span></div>
+      </div>
+      <div class="trow">
+        <div class="tname">Oklahoma City</div>
+        <div class="obtn"><span class="line">-15.5</span><span class="vig">-110</span></div>
+        <div class="obtn"><span class="line">-1450</span><span class="vig">&nbsp;</span></div>
+        <div class="obtn"><span class="line">u 226.5</span><span class="vig">-104</span></div>
+      </div>
+    </div>
+
+    <div class="gblock">
+      <div class="ginfo">
+        <span class="gid">#503 / #504 · Knicks @ 76ers</span>
+        <span class="ghold">
+          <span class="l">Hold</span>
+          <span class="hbadge good">SPR 2.3%</span>
+          <span class="hbadge mid">ML 4.1%</span>
+          <span class="hbadge good">TOT 2.5%</span>
+        </span>
+      </div>
+      <div class="trow">
+        <div class="tname">New York</div>
+        <div class="obtn"><span class="line">-2.5</span><span class="vig">-106</span></div>
+        <div class="obtn"><span class="line">-138</span><span class="vig">&nbsp;</span></div>
+        <div class="obtn"><span class="line">o 213.5</span><span class="vig">-110</span></div>
+      </div>
+      <div class="trow">
+        <div class="tname">Philadelphia</div>
+        <div class="obtn"><span class="line">+2.5</span><span class="vig">-108</span></div>
+        <div class="obtn"><span class="line">+118</span><span class="vig">&nbsp;</span></div>
+        <div class="obtn"><span class="line">u 213.5</span><span class="vig">-102</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="footnote">Pros: catches per-game variance (the Knicks ML at 4.1% pops as juicier than the Lakers ML). Cons: more visual noise; users scanning the board see hold first, line second.</p>
+
+
+  <!-- ============ VARIANT C ============ -->
+  <div class="variant-hdr">
+    <h2>Variant C — Hold % chip inside each cell</h2>
+    <span class="note">Most granular. Shows main-line vs alt-line variance. Best for power users / line shoppers.</span>
+  </div>
+
+  <div class="board">
+    <div class="colhdr">
+      <div class="lbl left">NBA — PLAYOFFS</div>
+      <div class="lbl">SPREAD</div>
+      <div class="lbl">MONEYLINE</div>
+      <div class="lbl">TOTAL</div>
+    </div>
+
+    <div class="gblock">
+      <div class="ginfo">
+        <span class="gid">#501 / #502</span>
+        <span class="gtime">Tue · 7:10p PT</span>
+      </div>
+      <div class="trow">
+        <div class="tname">LA Lakers</div>
+        <div class="obtn with-h"><span class="line">+15.5</span><span class="vig">-107</span><span class="cellh">2.1%</span></div>
+        <div class="obtn with-h"><span class="line">+1100</span><span class="vig">&nbsp;</span><span class="cellh">2.4%</span></div>
+        <div class="obtn with-h"><span class="line">o 226.5</span><span class="vig">-108</span><span class="cellh">2.6%</span></div>
+      </div>
+      <div class="trow">
+        <div class="tname">Oklahoma City</div>
+        <div class="obtn with-h"><span class="line">-15.5</span><span class="vig">-110</span><span class="cellh">2.1%</span></div>
+        <div class="obtn with-h"><span class="line">-1450</span><span class="vig">&nbsp;</span><span class="cellh">2.4%</span></div>
+        <div class="obtn with-h"><span class="line">u 226.5</span><span class="vig">-104</span><span class="cellh">2.6%</span></div>
+      </div>
+    </div>
+
+    <div class="gblock">
+      <div class="ginfo">
+        <span class="gid">#503 / #504</span>
+        <span class="gtime">Tue · 7:40p PT</span>
+      </div>
+      <div class="trow">
+        <div class="tname">San Antonio</div>
+        <div class="obtn with-h"><span class="line">+7.5</span><span class="vig">-115</span><span class="cellh mid">4.6%</span></div>
+        <div class="obtn with-h"><span class="line">+285</span><span class="vig">&nbsp;</span><span class="cellh mid">5.1%</span></div>
+        <div class="obtn with-h"><span class="line">o 222.5</span><span class="vig">-118</span><span class="cellh bad">6.8%</span></div>
+      </div>
+      <div class="trow">
+        <div class="tname">Minnesota</div>
+        <div class="obtn with-h"><span class="line">-7.5</span><span class="vig">-105</span><span class="cellh mid">4.6%</span></div>
+        <div class="obtn with-h"><span class="line">-340</span><span class="vig">&nbsp;</span><span class="cellh mid">5.1%</span></div>
+        <div class="obtn with-h"><span class="line">u 222.5</span><span class="vig">+102</span><span class="cellh bad">6.8%</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="footnote">Pros: shows the user exactly where the juiciest markets are. Educational — teaches new bettors what "hold" means by seeing the variance. Cons: busiest layout; the chip is also redundant within a market (both sides share the same hold).</p>
+
+
+  <!-- ============ SLIP-LEVEL HOLD ============ -->
+  <div class="variant-hdr">
+    <h2>Slip-level "Total Hold" — for the parlay rail</h2>
+    <span class="tag">HIGH IMPACT</span>
+    <span class="note">Shows how hold compounds across legs. Almost no commercial book does this.</span>
+  </div>
+
+  <div class="layout">
+    <div class="board">
+      <div class="colhdr">
+        <div class="lbl left">NBA — PLAYOFFS</div>
+        <div class="lbl">SPREAD</div>
+        <div class="lbl">MONEYLINE</div>
+        <div class="lbl">TOTAL</div>
+      </div>
+      <div class="gblock">
+        <div class="ginfo">
+          <span class="gid">3 legs selected from this board</span>
+          <span class="gtime">Parlay mode</span>
+        </div>
+        <div class="trow">
+          <div class="tname">LA Lakers</div>
+          <div class="obtn"><span class="line">+15.5</span><span class="vig">-107</span></div>
+          <div class="obtn"><span class="line">+1100</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">o 226.5</span><span class="vig">-108</span></div>
+        </div>
+        <div class="trow">
+          <div class="tname">Oklahoma City</div>
+          <div class="obtn"><span class="line">-15.5</span><span class="vig">-110</span></div>
+          <div class="obtn"><span class="line">-1450</span><span class="vig">&nbsp;</span></div>
+          <div class="obtn"><span class="line">u 226.5</span><span class="vig">-104</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rail">
+      <div class="rail-hdr"><span>Parlay (3)</span><span style="font-size:11px;color:#cfd6d5;">3.6× payout</span></div>
+      <div class="rail-body">
+        <div class="pleg">
+          <div>
+            <div class="ptitle">Lakers +15.5</div>
+            <div class="pmkt">Spread · hold 2.1%</div>
+          </div>
+          <div class="podds">-107</div>
+        </div>
+        <div class="pleg">
+          <div>
+            <div class="ptitle">Knicks -2.5</div>
+            <div class="pmkt">Spread · hold 2.3%</div>
+          </div>
+          <div class="podds">-106</div>
+        </div>
+        <div class="pleg">
+          <div>
+            <div class="ptitle">Spurs/Wolves o 222.5</div>
+            <div class="pmkt">Total · hold 6.8%</div>
+          </div>
+          <div class="podds">-118</div>
+        </div>
+
+        <div class="summary">
+          <div class="sumrow"><span class="lbl">Risk</span><span class="val">$50.00</span></div>
+          <div class="sumrow"><span class="lbl">To Win</span><span class="val">$181.13</span></div>
+          <div class="sumrow bold"><span class="lbl">Total Payout</span><span class="val">$231.13</span></div>
+        </div>
+
+        <div class="slip-hold-callout">
+          <b>Slip Hold: 10.9%</b><br>
+          3-leg compound — your effective edge required to break even is ~10.9%, even though each leg averages 3.7% hold.
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="footnote">Compounded hold math: 1 − ∏(1 − legHold). Three legs at 2.1% / 2.3% / 6.8% → ~10.9% slip hold. None of DK/FD/MGM show this; Pinnacle doesn't either. It's a uniquely sharp/educational touch and would be a real differentiator for GridV2.</p>
+
+
+  <div class="variant-hdr" style="margin-top:36px;">
+    <h2>My take</h2>
+  </div>
+  <p style="font-size:13.5px; line-height:1.55;">
+    <b>Ship Variant A + Slip-Level Hold.</b> Variant A reads cleanly in the existing column header without breaking the board layout, and one hold number per market (per league) is honest — that's how books actually price internally. Variant B is the second-best add-on once you start tiering hold by game (live in-game markets, etc.). Variant C is fun to build but the chip clutters cells and the number is redundant within a two-sided market.
+  </p>
+  <p style="font-size:13.5px; line-height:1.55;">
+    The slip-level hold callout is the move that would make GridV2 feel <i>obviously</i> sharper than any commercial book — Pinnacle doesn't even do it. Pairs naturally with reduced-juice main lines.
+  </p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,3 @@
+  console.error('Orchestrator crash:', err);
+  process.exit(2);
+});

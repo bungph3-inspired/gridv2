@@ -1,0 +1,77 @@
+  /* Stub view for unimplemented tiles */
+  .ag-stub         { @apply flex flex-col items-center justify-center gap-3 p-12 text-center; }
+  .ag-stub-icon    { @apply text-5xl; }
+  .ag-stub-title   { @apply font-display text-2xl font-bold text-bet-darker uppercase tracking-wider; }
+  .ag-stub-msg     { @apply text-bet-text-sm text-sm max-w-md; }
+
+  /* ─── CUSTOMER DETAIL VIEW ────────────────────────────────────────────────
+     Reached by clicking a player ID in Management. Multi-tab editor (3 real,
+     8 stubs). Display-only first pass — SAVE button disabled, inputs are
+     rendered as text. */
+  .ag-prow         { @apply cursor-pointer; }
+  .ag-cust-hdr     { @apply bg-bet-darker text-white px-4 py-3 flex items-center gap-3 flex-shrink-0 border-t border-white/10; }
+  .ag-cust-id      { @apply font-display text-xl font-bold tracking-wider mr-2; }
+  .ag-cust-pills   { @apply flex gap-2 flex-wrap flex-1; }
+  .ag-cust-pill    { @apply flex flex-col items-center gap-0.5 px-3 py-1 bg-white/5 rounded border border-white/10; }
+  .ag-cust-pill-lbl { @apply font-display text-[9px] uppercase tracking-wider text-white/60; }
+  .ag-cust-pill-val { @apply font-display text-sm font-semibold text-white tabular-nums; }
+  .ag-cust-pill-val.ag-pos { @apply text-green-300; }
+  .ag-cust-pill-val.ag-neg { @apply text-red-300; }
+  .ag-cust-save    { @apply bg-bet-green/60 text-white/60 font-display font-bold uppercase tracking-wider px-4 py-1.5 rounded text-xs cursor-not-allowed; }
+
+  .ag-cust-tabs    { @apply flex bg-bet-panel border-b border-bet-border overflow-x-auto flex-shrink-0; }
+  .ag-cust-tab     { @apply flex items-center gap-1.5 px-3 py-2 font-display text-xs uppercase tracking-wider text-bet-text-sm border-b-2 border-transparent cursor-pointer bg-transparent whitespace-nowrap hover:text-bet-darker; }
+  .ag-cust-tab.active { @apply text-bet-darker border-bet-accent; }
+  .ag-cust-tab.stub { @apply text-bet-text-xs italic; }
+  .ag-cust-tab-icon { @apply text-sm; }
+
+  .ag-cust-body    { @apply flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-bet-bg; }
+  .ag-back-row     { @apply flex-shrink-0; }
+  .ag-cust-body .ag-back { @apply bg-bet-panel text-bet-text border border-bet-border hover:bg-white; }
+
+  /* Personal tab */
+  .ag-personal     { @apply grid grid-cols-2 gap-4; }
+  .ag-personal-col { @apply bg-white border border-bet-border rounded p-3 flex flex-col gap-1.5; }
+  .ag-sect-hdr     { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5 -mx-3 first:-mt-3 mt-2 mb-1; }
+  .ag-frow         { @apply grid items-center gap-2 px-1 py-1 border-b border-bet-alt last:border-b-0 text-sm; grid-template-columns: 130px 12px 1fr; }
+  .ag-flabel       { @apply font-display text-[11px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-fsep         { @apply text-bet-text-xs text-center; }
+  .ag-fval         { @apply text-bet-text font-medium text-sm break-words; }
+  .ag-mono-num     { @apply font-mono tabular-nums text-bet-green; }
+  .ag-status       { @apply inline-block font-display font-bold text-xs uppercase tracking-wider px-2 py-0.5 rounded; }
+  .ag-status.ok    { @apply bg-bet-green/15 text-bet-green; }
+  .ag-status.bad   { @apply bg-bet-red/15 text-bet-red; }
+  .ag-pill-mailbox.on { @apply bg-bet-green text-white border-bet-green; }
+
+  /* Limits tab */
+  .ag-limits       { @apply flex flex-col gap-4; }
+  .ag-lim-cards    { @apply grid grid-cols-2 gap-4; }
+  .ag-lim-card     { @apply bg-white border border-bet-border rounded overflow-hidden; }
+  .ag-lim-hdr      { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5; }
+  .ag-lim-row      { @apply px-3; }
+  .ag-lim-chart    { @apply bg-white border border-bet-border rounded overflow-hidden; }
+  .ag-lim-chart-hdr { @apply bg-bet-brand text-white font-display text-[11px] uppercase tracking-wider px-3 py-1.5; }
+  .ag-lim-table    { @apply w-full text-sm border-collapse; }
+  .ag-lim-table thead th { @apply bg-bet-panel text-bet-darker font-display text-[10px] uppercase tracking-wider px-3 py-2 border-b border-bet-border text-left; }
+  .ag-lim-table tbody td { @apply px-3 py-2 border-b border-bet-alt; }
+  .ag-lim-table tbody tr:last-child td { @apply border-b-0; }
+  .ag-lim-table .num { @apply text-right tabular-nums font-mono text-bet-green; }
+
+  /* Wager tab */
+  .ag-wager        { @apply flex flex-col gap-3; }
+  .ag-wfilters     { @apply bg-white border border-bet-border rounded p-3 flex items-center gap-3 flex-wrap; }
+  .ag-wf-lbl       { @apply font-display text-[10px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-wf-inp       { @apply border border-bet-border rounded px-2 py-1 text-sm w-32; }
+  .ag-wf-cell      { @apply flex flex-col gap-0.5; }
+  .ag-wf-cell label { @apply font-display text-[9px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-wf-sel       { @apply border border-bet-border rounded px-2 py-1 text-sm bg-white; }
+  .ag-wager-empty  { @apply bg-white border border-bet-border rounded text-center py-12 text-bet-text-sm italic; }
+  .ag-wager-table  { @apply w-full bg-white border border-bet-border rounded text-sm border-collapse overflow-hidden; }
+  .ag-wager-table thead th { @apply bg-bet-panel text-bet-darker font-display text-[10px] uppercase tracking-wider px-2 py-2 border-b border-bet-border text-left; }
+  .ag-wager-table tbody td { @apply px-2 py-1.5 border-b border-bet-alt; }
+  .ag-wager-table .num { @apply text-right tabular-nums; }
+  .ag-wres         { @apply inline-block font-display text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border; }
+  .ag-wres-pending { @apply bg-amber-100 text-amber-800 border-amber-300; }
+  .ag-wres-win     { @apply bg-green-100 text-green-800 border-green-300; }
+  .ag-wres-loss    { @apply bg-red-100 text-red-800 border-red-300; }
+}

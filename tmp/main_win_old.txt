@@ -1,0 +1,4 @@
+  toggleMockMode,
+  toggleAltLines,
+  computeReverseNet
+});

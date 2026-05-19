@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GridV2 · ESPN logo preview (NBA)</title>
+<style>
+  :root {
+    --bet-darker: #172d33;
+    --bet-brand: #1a3a42;
+    --bet-accent: #e87722;
+    --bet-text: #1a2428;
+    --bet-text-sm: #5f5e5a;
+    --surf: #f6f5ee;
+    --line: #d3d1c7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: 'Barlow', -apple-system, system-ui, sans-serif;
+    color: var(--bet-text);
+    background: #faf9f4;
+  }
+  h1 { font: 600 22px 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: var(--bet-text-sm); margin: 0 0 24px; }
+  h2 { font: 500 14px 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 0.8px; color: var(--bet-text); margin: 28px 0 10px; }
+
+  /* Grid of all 30 */
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .tile { background: var(--surf); border-radius: 6px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .tile img { width: 56px; height: 56px; object-fit: contain; }
+  .tile .ab { font: 600 11px 'Barlow Condensed', sans-serif; color: var(--bet-text-sm); letter-spacing: 0.5px; }
+  .tile .nm { font-size: 11px; color: var(--bet-text); text-align: center; line-height: 1.2; }
+
+  /* Game board (desktop) */
+  .board { background: #fff; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .board-row { display: grid; grid-template-columns: 1fr 80px 80px 80px; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .board-row:last-child { border-bottom: 0; }
+  .board-row .tn { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+  .board-row .tn img { width: 26px; height: 26px; object-fit: contain; }
+  .pk { background: #eef2f4; border-radius: 3px; padding: 6px 4px; text-align: center; font: 600 11px 'Barlow Condensed', sans-serif; color: var(--bet-text); }
+  .pk .ln { display: block; font-size: 12px; }
+  .pk .od { display: block; font-size: 10px; color: var(--bet-text-sm); margin-top: 1px; }
+
+  /* Selections panel */
+  .sel-wrap { background: var(--bet-brand); border-radius: 6px; padding: 12px; max-width: 240px; }
+  .sel { display: flex; align-items: center; gap: 10px; padding: 6px 0; color: #e9eef0; }
+  .sel img { width: 24px; height: 24px; object-fit: contain; background: #fff; border-radius: 50%; padding: 2px; }
+  .sel .nm { font-weight: 500; font-size: 12px; }
+  .sel .pk2 { color: #b9c2c5; font-size: 10px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; }
+
+  /* Modal review */
+  .modal { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px; max-width: 380px; }
+  .modal-h { font: 600 12px 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 0.8px; color: var(--bet-text-sm); margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .mrow { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 12px; }
+  .mrow img { width: 22px; height: 22px; object-fit: contain; }
+  .mrow .pmodds { font-family: 'Barlow Condensed', sans-serif; font-weight: 600; }
+
+  /* Mobile card */
+  .mob { background: var(--bet-darker); border-radius: 6px; padding: 12px; max-width: 360px; }
+  .mob-row { display: grid; grid-template-columns: 1fr 56px 56px 56px; gap: 4px; align-items: center; padding: 8px 0; color: #fff; font-size: 12px; border-bottom: 1px solid #2f4248; }
+  .mob-row:last-child { border-bottom: 0; }
+  .mob-row .tn { display: flex; align-items: center; gap: 8px; }
+  .mob-row img { width: 22px; height: 22px; object-fit: contain; }
+  .mob-row .pkm { background: #2f4248; border-radius: 3px; padding: 4px 2px; text-align: center; font: 600 10px 'Barlow Condensed', sans-serif; }
+
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .col { flex: 1 1 280px; min-width: 240px; }
+</style>
+</head>
+<body>
+
+<h1>ESPN team logos · NBA preview</h1>
+<p class="sub">Source: <code>a.espncdn.com/i/teamlogos/nba/500/{abbr}.png</code> &middot; If logos don't load, you have no internet or ESPN is blocking the request.</p>
+
+<h2>All 30 teams</h2>
+<div class="grid">
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/atl.png" alt=""><span class="ab">ATL</span><span class="nm">Hawks</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bos.png" alt=""><span class="ab">BOS</span><span class="nm">Celtics</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bkn.png" alt=""><span class="ab">BKN</span><span class="nm">Nets</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/cha.png" alt=""><span class="ab">CHA</span><span class="nm">Hornets</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/chi.png" alt=""><span class="ab">CHI</span><span class="nm">Bulls</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/cle.png" alt=""><span class="ab">CLE</span><span class="nm">Cavaliers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/dal.png" alt=""><span class="ab">DAL</span><span class="nm">Mavericks</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/den.png" alt=""><span class="ab">DEN</span><span class="nm">Nuggets</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/det.png" alt=""><span class="ab">DET</span><span class="nm">Pistons</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/gs.png" alt=""><span class="ab">GSW</span><span class="nm">Warriors</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/hou.png" alt=""><span class="ab">HOU</span><span class="nm">Rockets</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/ind.png" alt=""><span class="ab">IND</span><span class="nm">Pacers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lac.png" alt=""><span class="ab">LAC</span><span class="nm">Clippers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lal.png" alt=""><span class="ab">LAL</span><span class="nm">Lakers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/mem.png" alt=""><span class="ab">MEM</span><span class="nm">Grizzlies</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/mia.png" alt=""><span class="ab">MIA</span><span class="nm">Heat</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/mil.png" alt=""><span class="ab">MIL</span><span class="nm">Bucks</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/min.png" alt=""><span class="ab">MIN</span><span class="nm">Timberwolves</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/no.png" alt=""><span class="ab">NOP</span><span class="nm">Pelicans</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/ny.png" alt=""><span class="ab">NYK</span><span class="nm">Knicks</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/okc.png" alt=""><span class="ab">OKC</span><span class="nm">Thunder</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/orl.png" alt=""><span class="ab">ORL</span><span class="nm">Magic</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/phi.png" alt=""><span class="ab">PHI</span><span class="nm">76ers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/phx.png" alt=""><span class="ab">PHX</span><span class="nm">Suns</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/por.png" alt=""><span class="ab">POR</span><span class="nm">Trail Blazers</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/sac.png" alt=""><span class="ab">SAC</span><span class="nm">Kings</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/sa.png" alt=""><span class="ab">SAS</span><span class="nm">Spurs</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/tor.png" alt=""><span class="ab">TOR</span><span class="nm">Raptors</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/utah.png" alt=""><span class="ab">UTA</span><span class="nm">Jazz</span></div>
+  <div class="tile"><img src="https://a.espncdn.com/i/teamlogos/nba/500/wsh.png" alt=""><span class="ab">WAS</span><span class="nm">Wizards</span></div>
+</div>
+
+<h2>In context · game board (desktop)</h2>
+<div class="board">
+  <div class="board-row">
+    <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lal.png" alt="">L.A. Lakers</div>
+    <div class="pk"><span class="ln">+5.5</span><span class="od">&minus;110</span></div>
+    <div class="pk"><span class="ln">+185</span><span class="od">&nbsp;</span></div>
+    <div class="pk"><span class="ln">o228.5</span><span class="od">&minus;110</span></div>
+  </div>
+  <div class="board-row">
+    <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bos.png" alt="">Boston Celtics</div>
+    <div class="pk"><span class="ln">&minus;5.5</span><span class="od">&minus;110</span></div>
+    <div class="pk"><span class="ln">&minus;220</span><span class="od">&nbsp;</span></div>
+    <div class="pk"><span class="ln">u228.5</span><span class="od">&minus;110</span></div>
+  </div>
+  <div class="board-row">
+    <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/gs.png" alt="">Golden State</div>
+    <div class="pk"><span class="ln">&minus;2.5</span><span class="od">&minus;108</span></div>
+    <div class="pk"><span class="ln">&minus;135</span><span class="od">&nbsp;</span></div>
+    <div class="pk"><span class="ln">o241.5</span><span class="od">&minus;110</span></div>
+  </div>
+  <div class="board-row">
+    <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/den.png" alt="">Denver Nuggets</div>
+    <div class="pk"><span class="ln">+2.5</span><span class="od">&minus;112</span></div>
+    <div class="pk"><span class="ln">+115</span><span class="od">&nbsp;</span></div>
+    <div class="pk"><span class="ln">u241.5</span><span class="od">&minus;110</span></div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:24px">
+  <div class="col">
+    <h2>Selections panel</h2>
+    <div class="sel-wrap">
+      <div class="sel"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lal.png" alt=""><div><div class="nm">Lakers</div><div class="pk2">+5.5 (&minus;110)</div></div></div>
+      <div class="sel"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bos.png" alt=""><div><div class="nm">Celtics ML</div><div class="pk2">&minus;220</div></div></div>
+      <div class="sel"><img src="https://a.espncdn.com/i/teamlogos/nba/500/gs.png" alt=""><div><div class="nm">Warriors</div><div class="pk2">&minus;2.5 (&minus;108)</div></div></div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Modal review</h2>
+    <div class="modal">
+      <p class="modal-h">Confirm parlay &middot; 3 legs</p>
+      <div class="mrow"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lal.png" alt=""><span>L.A. Lakers</span><span class="pmodds">+5.5</span></div>
+      <div class="mrow"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bos.png" alt=""><span>Boston Celtics</span><span class="pmodds">&minus;220</span></div>
+      <div class="mrow"><img src="https://a.espncdn.com/i/teamlogos/nba/500/gs.png" alt=""><span>Golden State</span><span class="pmodds">&minus;2.5</span></div>
+    </div>
+  </div>
+  <div class="col">
+    <h2>Mobile board</h2>
+    <div class="mob">
+      <div class="mob-row">
+        <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/lal.png" alt="">LAL Lakers</div>
+        <div class="pkm">+5.5</div><div class="pkm">+185</div><div class="pkm">o228</div>
+      </div>
+      <div class="mob-row">
+        <div class="tn"><img src="https://a.espncdn.com/i/teamlogos/nba/500/bos.png" alt="">BOS Celtics</div>
+        <div class="pkm">&minus;5.5</div><div class="pkm">&minus;220</div><div class="pkm">u228</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

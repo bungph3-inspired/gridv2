@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172d33">
+  <meta name="description" content="GridV2 — entertainment-only practice board. Virtual currency, no real money.">
+  <meta property="og:title" content="GridV2 · Entertainment Only">
+  <meta property="og:description" content="Practice betting with virtual currency. Spreads, moneylines, totals, parlays, teasers, if bets. No real money.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>GridV2 · Entertainment Only</title>
+
+  <!-- Bounce narrow viewports / mobile UAs to the mobile build. Runs before
+       any other asset loads to avoid a flash of the desktop layout. -->
+  <script>
+    (function(){
+      try {
+        var isNarrow = window.innerWidth < 900;
+        var isMobileUA = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        var forceDesktop = /[?&]desktop=1\b/.test(location.search);
+        if ((isNarrow || isMobileUA) && !forceDesktop && !location.pathname.endsWith('index_mobile.html')) {
+          location.replace('index_mobile.html' + location.search + location.hash);
+        }
+      } catch(e) {}
+    })();
+  </script>
+
+  <!-- Fonts: Barlow Condensed (display) + Barlow (body). Same as v1 — preserved
+       intentionally as part of the design identity. Loaded via Google Fonts
+       to keep the build small (no self-hosted font assets). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Vite imports the stylesheet via main.js (`import './style.css'`).
+       That triggers the Tailwind v4 plugin to compile @theme + utilities. -->
+  <script type="module" crossorigin src="/assets/main-GB1Idkz3.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/api-e2IP5MWo.js">
+  <link rel="stylesheet" crossorigin href="/assets/api-BZucgPJe.css">
+</head>
+<body>
+
+<div id="app" class="flex flex-col h-full min-w-[900px]">
+
+  <!-- DISCLAIMER -->
+  <div class="disc"><b>⚠ ENTERTAINMENT ONLY</b> — Virtual currency only. No real money involved. Not affiliated with any gambling operation.</div>
+
+  <!-- HEADER -->
+  <header class="bet-header">
+    <div class="logo">Bet<span>Sim</span></div>
+    <div class="hbadge">v2 · Tailwind</div>
+    <div class="hapi">
+      <div class="ldot off" id="ldot"></div>
+      <span id="api-status">No API key</span>
+      <span class="auto-timer" id="auto-timer"></span>
+      <span class="qtxt" id="qtxt"></span>
+    </div>
+    <div class="hright">
+      <div class="hstat">
+        <label>Account</label>
+        <div class="hval">YM101</div>
+      </div>
+      <div class="hstat">
+        <label>Balance</label>
+        <div class="hval money" id="bal-disp">$1,000.00</div>
+      </div>
+      <div class="hstat hidden" id="pend-stat">
+        <label>Pending</label>
+        <div class="hval pend" id="pend-disp">0</div>
+      </div>
+      <button class="hbtn" onclick="openSettings()">⚙ Settings</button>
+      <button class="hbtn" onclick="openBets()">📋 My Bets <span id="bets-cnt" class="hidden bg-bet-accent rounded-lg px-1.5 py-0.5 text-[10px] ml-1">0</span></button>
+    </div>
+  </header>
+
+  <!-- BET TYPE TABS -->
+  <div class="bet-tabs">
+    <button type="button" class="btab active" id="tab-straight" onclick="setMode('straight')">STRAIGHT</button>
+    <button type="button" class="btab" id="tab-parlay" onclick="setMode('parlay')">PARLAY <span class="btab-badge hidden" id="par-badge">0</span></button>
+    <button type="button" class="btab" id="tab-teaser" onclick="setMode('teaser')">TEASER <span class="btab-badge hidden" id="tea-badge">0</span></button>
+    <button type="button" class="btab" id="tab-reverse" onclick="setMode('reverse')">REVERSE <span class="btab-badge hidden" id="rv-badge">0</span></button>
+    <button type="button" class="btab" id="tab-ifbet" onclick="setMode('ifbet')">IF BET <span class="btab-badge hidden" id="if-badge">0</span></button>
+    <button class="continue-btn" id="continue-btn" onclick="onContinue()">
+      <span class="continue-badge hidden" id="continue-cnt">0</span> CONTINUE →
+    </button>
+  </div>
+
+  <!-- MAIN THREE-PANEL LAYOUT -->
+  <div class="main" id="main-layout">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+      <div class="sb-live-hdr">
+        <div class="ldot live bg-bet-pulse"></div>
+        PULSE LIVE
+      </div>
+      <select class="sb-sel" onchange="filterSport(this.value)" aria-label="Filter by sport">
+        <option value="all">All Sports</option>
+        <option value="NBA">NBA</option>
+        <option value="MLB">MLB</option>
+        <option value="NHL">NHL</option>
+        <option value="NFL">NFL</option>
+        <option value="NCAAB">NCAAB</option>
+        <option value="NCAAF">NCAAF</option>
+      </select>
+      <div id="sidebar-leagues"></div>
+    </div>
+
+    <!-- CENTER ODDS BOARD -->
+    <div class="center" id="center-panel">
+      <div class="board-hdr">
+        <button class="upd-btn" id="upd-btn" onclick="manualRefresh()"><span class="spin">↺</span> Update Lines</button>
+        <span id="board-title">NBA – Playoffs</span>
+        <span class="lupd" id="lupd"></span>
+        <button class="brd-continue" onclick="onContinue()"><span class="brd-continue-badge hidden" id="brd-continue-cnt">0</span> CONTINUE →</button>
+      </div>
+
+      <!-- column headers (straight mode) -->
+      <div class="col-hdrs" id="col-hdrs">
+        <div class="ch text-left">LIMITS</div>
+        <div class="ch" id="ch-spread">Spread<span class="ch-limit" id="lim-spread">$1000</span></div>
+        <div class="ch" id="ch-ml">Moneyline<span class="ch-limit" id="lim-ml">$500</span></div>
+        <div class="ch" id="ch-total">Total<span class="ch-limit" id="lim-total">$1000</span></div>
+        <div class="ch" id="ch-tt">Team Total<span class="ch-limit" id="lim-tt">$1000</span></div>
+      </div>
+
+      <!-- TEASER MENU (variant picker, hidden except in teaser+menu mode) -->
+      <div class="teaser-menu hidden" id="teaser-menu">
+        <div class="tm-hdr">TEASER MENU</div>
+        <div class="tm-body" id="tm-body"></div>
+        <div class="tm-foot">⚠ Entertainment-only · Teasers shift spreads/totals in your favor by N points · All legs must win for the teaser to pay</div>
+      </div>
+
+      <div id="board"></div>
+    </div>
+
+    <!-- RIGHT PANEL: parlay / teaser / ifbet selections (hidden in straight)
+         v2 redesign: presents as a physical betting ticket — paper bg, orange
+         left-stripe, leg cards, receipt-style total. See @layer components
+         in style.css for the full design system. -->
+    <div class="sel-panel hidden" id="sel-panel">
+      <div class="spanel-hdr">
+        <span>Betslip</span>
+        <button class="ssclr" onclick="clearSelections()">CLEAR ALL</button>
+      </div>
+
+      <!-- combined odds receipt total (parlay mode only) -->
+      <div class="sel-combined" id="sel-combined">
+        <div class="clbl">Combined Odds</div>
+        <div class="codds" id="sc-odds">—</div>
+        <div class="cam" id="sc-am"></div>
+        <div class="csub">Decimal · American</div>
+      </div>
+
+      <!-- leg cards container -->
+      <div class="sel-legs-wrap" id="sel-legs"></div>
+
+      <!-- continue button at bottom (gradient, integrated badge) -->
+      <button class="sel-continue dim" id="sel-continue" onclick="openParlayModal()">
+        <span class="scn" id="sel-continue-cnt">0</span>
+        <span>CONTINUE</span>
+        <span>→</span>
+      </button>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- REVIEW WAGER (replaces main in straight mode) -->
+  <div class="review-screen" id="review-screen">
+    <div class="rv-hdr">
+      <span>⊖ REVIEW WAGER ⊖</span>
+      <button class="rv-back" onclick="closeReview()">← BACK</button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4">
+      <table class="rv-table">
+        <thead>
+          <tr>
+            <th class="rv-th text-left w-[38%]">Teams</th>
+            <th class="rv-th text-left w-[18%]">Odds</th>
+            <th class="rv-th text-right w-[18%]">Win $</th>
+            <th class="rv-th text-right w-[16%]">Risk $</th>
+          </tr>
+        </thead>
+        <tbody id="rv-body"></tbody>
+      </table>
+    </div>
+    <div class="rv-summary" id="rv-summary"></div>
+    <div class="rv-actions">
+      <button class="rv-cancel" onclick="closeReview()">⊗ CANCEL</button>
+      <button class="rv-confirm" onclick="confirmWagers()">CONFIRM →</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ─── MODALS ──────────────────────────────────────────────────────────── -->
+
+<!-- PARLAY MODAL -->
+<div class="pmoverlay" id="pmoverlay">
+  <div class="pmodal">
+    <div class="pmh"><span id="pmtitle">2 Team – Parlay</span><button class="pmclose" onclick="closePM()" aria-label="Close">✕</button></div>
+    <div class="px-3 py-2 flex flex-col gap-1.5" id="pmlegs"></div>
+    <div class="pmbody">
+      <div class="hidden text-[11px] text-bet-accent-dk italic" id="corr">⚠ Same-game legs detected — some books won't accept this.</div>
+      <div class="pminputs">
+        <div class="pmcell">
+          <label for="pm-risk">Bet Amount</label>
+          <input type="number" id="pm-risk" value="20" min="20" step="5" oninput="updatePMCalc()">
+        </div>
+        <div class="pmcell">
+          <span class="lbl">Win</span>
+          <div class="font-display text-base font-bold text-bet-green" id="pm-win">$0.00</div>
+        </div>
+      </div>
+      <div class="pmodd" id="pm-val"></div>
+      <button class="pmconfirm" id="pm-confirm" onclick="confirmParlay()">Place Parlay →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEASER PAYOUTS MODAL -->
+<div class="pmoverlay" id="tpay-overlay">
+  <div class="pmodal max-w-[380px]">
+    <div class="pmh"><span id="tpay-title">PRIME 6</span><button class="pmclose" onclick="closeTeaserPayouts()" aria-label="Close">✕</button></div>
+    <div class="pmbody">
+      <div class="tpay-sub" id="tpay-sub"></div>
+      <table class="tpay-table">
+        <thead><tr><th>#&nbsp;Picked</th><th>#&nbsp;Won</th><th>Risk</th><th>Win</th></tr></thead>
+        <tbody id="tpay-body"></tbody>
+      </table>
+      <div class="tpay-rule">Ties: Push (the leg drops out and remaining legs determine payout for that leg count)</div>
+    </div>
+  </div>
+</div>
+
+<!-- IF BET REVIEW MODAL -->
+<div class="pmoverlay" id="ifoverlay">
+  <div class="pmodal max-w-[520px]">
+    <div class="pmh"><span id="iftitle">2-Leg If Bet</span><button class="pmclose" onclick="closeIF()" aria-label="Close">✕</button></div>
+    <div id="iflegs"></div>
+    <div class="if-totals">
+      <div><span class="lbl">Total Risk:</span> <span class="risk" id="if-totrisk">$0.00</span></div>
+      <div><span class="lbl">Total Win (if all hit):</span> <span class="win" id="if-totwin">$0.00</span></div>
+    </div>
+    <div class="pmbody">
+      <div class="pmodd" id="if-val"></div>
+      <button class="pmconfirm" id="if-confirm" onclick="confirmIfBet()">Place If Bet →</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVERSE ACTION REVIEW MODAL -->
+<div class="pmoverlay" id="rvoverlay">
+  <div class="pmodal max-w-[560px]">
+    <div class="pmh"><span id="rvtitle">2-Team Reverse Action</span><button class="pmclose" onclick="closeRV()" aria-label="Close">✕</button></div>
+    <div id="rvlegs"></div>
+    <div class="px-3 py-2 text-[11px] text-bet-text-xs leading-snug border-t border-bet-border">
+      Two If Bets at the same stake: <strong>A→B</strong> and <strong>B→A</strong>. Push/cancel on a trigger passes action to the next leg (action reverse). A loss kills that chain.
+    </div>
+    <div class="pmbody">
+      <div class="pminputs">
+        <div class="pmcell">
+          <label for="rv-stake">Stake per play</label>
+          <input type="number" id="rv-stake" value="50" min="20" step="5" oninput="updateRVCalc()">
+        </div>
+        <div class="pmcell">
+          <span class="lbl">Total Risk</span>
+          <div class="font-display text-base font-bold text-bet-red" id="rv-totrisk">$100.00</div>
+        </div>
+        <div class="pmcell">
+          <span class="lbl">Max Win</span>
+          <div class="font-display text-base font-bold text-bet-green" id="rv-maxwin">$0.00</div>
+        </div>
+      </div>
+      <div class="pmodd" id="rv-val"></div>
+      <button class="pmconfirm" id="rv-confirm" onclick="confirmReverse()">Place Reverse →</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVERSE SETTLEMENT MODAL (leg-level outcomes) -->
+<div class="pmoverlay" id="rvsetoverlay">
+  <div class="pmodal max-w-[480px]">
+    <div class="pmh"><span>Settle Reverse</span><button class="pmclose" onclick="closeRVSettle()" aria-label="Close">✕</button></div>
+    <div id="rvsetbody" class="px-3 py-3 flex flex-col gap-3"></div>
+    <div class="pmbody">
+      <div class="pmodd" id="rvset-preview"></div>
+      <button class="pmconfirm" id="rvset-confirm" onclick="confirmRVSettle()">Settle →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEASER REVIEW MODAL -->
+<div class="pmoverlay" id="tmoverlay">
+  <div class="pmodal">
+    <div class="pmh"><span id="tmtitle">2-Pick Teaser</span><button class="pmclose" onclick="closeTM()" aria-label="Close">✕</button></div>
+    <div class="px-3 py-2 flex flex-col gap-1.5" id="tmlegs"></div>
+    <div class="pmbody">
+      <div class="pminputs">
+        <div class="pmcell">
+          <label for="tm-risk">Bet Amount</label>
+          <input type="number" id="tm-risk" value="20" min="20" step="5" oninput="updateTMCalc()">
+        </div>
+        <div class="pmcell">
+          <span class="lbl">Win @ <span id="tm-am">+150</span></span>
+          <div class="font-display text-base font-bold text-bet-green" id="tm-win">$0.00</div>
+        </div>
+      </div>
+      <div class="pmodd" id="tm-val"></div>
+      <button class="pmconfirm" id="tm-confirm" onclick="confirmTeaser()">Place Teaser →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MY BETS MODAL -->
+<div class="bmodal-overlay" id="bmodal-overlay">
+  <div class="bmodal">
+    <div class="bmh">My Bets <button onclick="closeBets()" aria-label="Close">✕</button></div>
+    <div class="bmbody" id="bmodal-body"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="set-overlay" id="set-overlay">
+  <div class="set-modal">
+    <div class="set-hdr">⚙ Settings <button class="bg-transparent border-none text-white cursor-pointer" onclick="closeSettings()" aria-label="Close">✕</button></div>
+    <div class="set-body">
+      <div class="set-row">
+        <label for="api-key-inp">★ API Key (OddsPapi)</label>
+        <input type="password" id="api-key-inp" placeholder="Paste your key here…" autocomplete="off">
+        <div class="set-help">Free key at oddspapi.io · 250 req/day on free tier</div>
+        <button class="set-save mt-2" onclick="saveApiKey()">Save & Connect</button>
+      </div>
+      <div class="set-row">
+        <label for="mock-cbx">🎭 Mock Mode</label>
+        <div class="set-toggle-row">
+          <input type="checkbox" id="mock-cbx" onchange="toggleMockMode()" class="w-4 h-4">
+          <span id="mock-status">Use captured fixture data — no API calls</span>
+        </div>
+      </div>
+      <div class="set-row">
+        <label for="alt-cbx">▼ Alt Lines</label>
+        <div class="set-toggle-row">
+          <input type="checkbox" id="alt-cbx" onchange="toggleAltLines()" class="w-4 h-4">
+          <span id="alt-status">Show alt-line chevrons on spread/total/prop cells</span>
+        </div>
+      </div>
+      <div class="set-row">
+        <label for="book-sel">Preferred Bookmaker</label>
+        <select id="book-sel" onchange="saveBook()">
+          <option value="pinnacle">Pinnacle</option>
+          <option value="draftkings">DraftKings</option>
+          <option value="fanduel">FanDuel</option>
+          <option value="betmgm">BetMGM</option>
+          <option value="caesars">Caesars</option>
+          <option value="pointsbetus">PointsBet</option>
+          <option value="betonlineag">BetOnline</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <span class="lbl">API Quota</span>
+        <div class="bg-bet-alt h-2 rounded-full overflow-hidden border border-bet-border"><div class="h-full bg-bet-accent transition-all" id="qbar" style="width:0%"></div></div>
+        <div class="flex justify-between text-[10px] text-bet-text-xs mt-1"><span id="q-used">— used</span><span id="q-rem">— remaining</span></div>
+      </div>
+      <div class="set-row">
+        <span class="lbl">Virtual Balance</span>
+        <div class="font-display text-[22px] font-bold text-bet-green mb-1.5" id="set-bal">$1,000.00</div>
+        <button class="set-save-secondary" onclick="resetBalance()">↺ Reset Balance to $1,000</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- Mock data fixture (sibling file from BetSim v1 (legacy), copied to public/).
+     If missing, Mock Mode toggle stays disabled in Settings. -->
+<script src="/mock_data.js" onerror="window.__noMockData=true"></script>
+
+<!-- Desktop entry -->
+</body>
+</html>

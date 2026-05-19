@@ -1,0 +1,9 @@
+function agentHeaderBar(m){
+  return `
+    <div class="ag-topbar">
+      <div class="ag-id">${escapeHtml(m.id)}</div>
+      <div class="ag-bal">BALANCE &gt; <span class="ag-bal-val">${fmtUSD(m.balance)}</span></div>
+      <div class="ag-crumb" id="ag-crumb">Dashboard</div>
+    </div>
+  `;
+}

@@ -1,0 +1,6 @@
+  /* Stub view for unimplemented tiles */
+  .ag-stub         { @apply flex flex-col items-center justify-center gap-3 p-12 text-center; }
+  .ag-stub-icon    { @apply text-5xl; }
+  .ag-stub-title   { @apply font-display text-2xl font-bold text-bet-darker uppercase tracking-wider; }
+  .ag-stub-msg     { @apply text-bet-text-sm text-sm max-w-md; }
+}

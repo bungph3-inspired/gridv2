@@ -1,0 +1,6 @@
+  toggleMockMode,
+  toggleAltLines,
+  computeReverseNet,
+  submitPlayerLogin,
+  logoutPlayer
+});

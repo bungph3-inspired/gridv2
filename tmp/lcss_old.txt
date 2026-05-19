@@ -1,0 +1,7 @@
+  /* ─── AGENT VIEW (bookie-side portal) ─────────────────────────────────────
+     Toggled by header button. Replaces #main-layout when active. Mirrors
+     LC797's agent portal layout. Live scoreboard intentionally omitted.
+     See AGENT_RECON.md for the source-of-truth recon. */
+  .agent-view {
+    @apply flex-1 overflow-y-auto bg-bet-bg;
+  }

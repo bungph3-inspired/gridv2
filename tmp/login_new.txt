@@ -1,0 +1,24 @@
+<div id="app" class="flex flex-col h-full min-w-[900px]">
+
+  <!-- LOGIN SPLASH — shown on first visit; hidden once localStorage has a
+       valid 'bs_player' value. Fake auth: any non-empty Login ID works.
+       The submitted ID becomes the displayed Account in the header. -->
+  <div class="login-splash" id="login-splash">
+    <div class="login-card">
+      <div class="login-brand">Bet<span>Sim</span></div>
+      <div class="login-sub">Entertainment-only practice board</div>
+      <form class="login-form" id="login-form" onsubmit="return submitPlayerLogin(event)">
+        <label for="login-id">Login ID</label>
+        <input type="text" id="login-id" autocomplete="username" placeholder="e.g. YM101" required>
+        <label for="login-pw">Password</label>
+        <input type="password" id="login-pw" autocomplete="current-password" placeholder="any value works">
+        <button type="submit" class="login-btn">Sign In</button>
+        <div class="login-note">Demo only · any credentials are accepted</div>
+      </form>
+      <div class="login-footer">
+        Are you an agent? <a href="/agent.html">Sign in here</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->

@@ -1,0 +1,47 @@
+  /* ─── LOGIN SPLASH (player + agent share these classes) ──────────────────
+     Hidden by default; .show makes it cover the viewport. Centered card on
+     bet-bg with Barlow Condensed title and a simple two-field form. Any
+     non-empty Login ID is accepted by the entry script. */
+  .login-splash {
+    @apply fixed inset-0 z-50 hidden items-center justify-center bg-bet-bg/95 backdrop-blur-sm;
+  }
+  .login-splash.show { @apply flex; }
+  .login-card {
+    @apply bg-white border border-bet-border rounded-lg shadow-card-hover w-[360px] max-w-[90vw] p-6 flex flex-col gap-4;
+  }
+  .login-brand {
+    @apply font-display text-3xl font-bold tracking-wider text-bet-darker text-center;
+  }
+  .login-brand span { @apply text-bet-accent; }
+  .login-sub {
+    @apply text-bet-text-sm text-center text-sm -mt-2;
+  }
+  .login-form { @apply flex flex-col gap-2; }
+  .login-form label {
+    @apply font-display text-[11px] uppercase tracking-wider text-bet-text-sm mt-2;
+  }
+  .login-form input {
+    @apply border border-bet-border rounded px-3 py-2 text-sm bg-bet-alt focus:bg-white focus:outline-none focus:border-bet-accent;
+  }
+  .login-btn {
+    @apply mt-3 bg-bet-darker text-white font-display font-bold uppercase tracking-wider py-2 rounded cursor-pointer hover:bg-bet-dk;
+  }
+  .login-note {
+    @apply text-bet-text-xs italic text-[10px] text-center mt-1;
+  }
+  .login-footer {
+    @apply text-bet-text-sm text-xs text-center border-t border-bet-border pt-3;
+  }
+  .login-footer a { @apply text-bet-accent-dk hover:underline; }
+
+  /* Logout button in the agent top bar */
+  .ag-logout {
+    @apply ml-2 bg-transparent border border-white/40 text-white text-xs px-2 py-1 rounded cursor-pointer hover:bg-white/10;
+  }
+
+  /* ─── AGENT VIEW (bookie-side portal) ─────────────────────────────────────
+     Standalone agent.html entry. Mirrors LC797's /partner/ subdir layout.
+     Live scoreboard intentionally omitted. See AGENT_RECON.md. */
+  .agent-view {
+    @apply flex-1 overflow-y-auto bg-bet-bg;
+  }

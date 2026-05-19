@@ -1,0 +1,10 @@
+<!-- Mock data fixture (sibling file from BetSim v1 (legacy), copied to public/).
+     If missing, Mock Mode toggle stays disabled in Settings. -->
+<script src="/mock_data.js" onerror="window.__noMockData=true"></script>
+
+<!-- Agent-mode mock dataset (50 players, weekly figures, recent activity).
+     Loaded before main.js so agent.js can read window.AGENT_MOCK at init. -->
+<script src="/agent_mock.js" onerror="window.__noAgentMock=true"></script>
+
+<!-- Desktop entry -->
+<script type="module" src="/src/main.js"></script>

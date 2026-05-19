@@ -1,0 +1,4 @@
+      <div class="hstat">
+        <label>Account</label>
+        <div class="hval" id="acct-disp">—</div>
+      </div>
