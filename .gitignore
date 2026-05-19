@@ -1,5 +1,8 @@
 node_modules/
 dist/
+dist_old_5/
+dist_old_5x/
+tmp/
 .DS_Store
 *.log
 .vite/
