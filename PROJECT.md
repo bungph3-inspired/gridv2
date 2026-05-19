@@ -5,6 +5,22 @@
 ## Overview
 A **Tailwind v4 + Vite** practice-board app (entertainment-only, virtual currency, simulated transactions), rebuilt with modern build tooling. The legacy `BetSim` v1 project remains **locked, untouched, single-file** as a visual reference. GridV2 is the active sandbox for the Tailwind v4 + Vite stack going forward.
 
+## Deployment
+- **Live URL:** https://gridv2.pages.dev
+  - Desktop: https://gridv2.pages.dev/
+  - Mobile: https://gridv2.pages.dev/index_mobile.html
+  - Agent: https://gridv2.pages.dev/agent.html
+- **Host:** Cloudflare Pages (free tier) with Git integration
+- **GitHub repo:** https://github.com/bungph3-inspired/gridv2 (account: `bungph3-inspired`)
+- **Production branch:** `main` — every push auto-deploys (~2–4 min build). Non-main branches get free preview URLs.
+- **Cloudflare build settings:**
+  - Framework preset: None
+  - Build command: `npm run build`
+  - Build output directory: `dist`
+  - Root directory: *(blank)*
+  - Env var: `NODE_VERSION = 20`
+- **Deploy workflow:** edit locally → `git push origin main` → Cloudflare rebuilds and redeploys automatically. No manual upload step.
+
 ## Goals
 - Demonstrate Tailwind v4's CSS-first config (`@theme` block) on a real, non-trivial design system
 - Produce a working desktop board visually equivalent to the legacy BetSim v1
