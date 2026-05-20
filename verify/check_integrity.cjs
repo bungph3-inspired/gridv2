@@ -55,6 +55,7 @@ const FILES = [
   ['verify/verify_mobile_teaser.cjs',     10000, true],
   ['verify/verify_mobile_teaser_gating.cjs', 6000, true],
   ['verify/verify_reverse.cjs',           10000, true],
+  ['verify/verify_agent.cjs',              8000, true],
 ];
 
 // A "valid closer" for the last non-whitespace line of code / HTML. Liberal

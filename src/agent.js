@@ -7,6 +7,11 @@
 //    'detail'       — single player, 11-tab editor (3 real + 8 stubs)
 //    'weekly'       — Weekly Figures report (per-player P/L, column-toggle modal)
 //    'pending'      — Pending Wagers (aggregated across all players)
+//    'ticker'       — Bet Ticker (all wagers across all players, settled + pending)
+//    'tx'           — Transactions (synthesized money movement: bets, settlements, freeplay)
+//    'position'     — Position (by-sport exposure over pending wagers)
+//    'ipcheck'      — IP Checker (recent logins with synthetic IP/device)
+//    'mailbox'      — Mailbox (player-facing AI FAQ chat + email support form)
 //    'placeholder'  — unimplemented tiles
 //
 //  Display-only first pass for Customer Detail (no edit/save).
@@ -26,6 +31,11 @@ const agentState = {
     agentInfo: 'Balance',
     activity: 'This Week',
     settingsOpen: false,
+  },
+  mailbox: {
+    tab: 'ai',
+    messages: [],
+    emailSent: false,
   },
 };
 
@@ -87,6 +97,11 @@ function render(){
   if (agentState.subview === 'detail') return renderDetail(root);
   if (agentState.subview === 'weekly') return renderWeekly(root);
   if (agentState.subview === 'pending') return renderPending(root);
+  if (agentState.subview === 'ticker') return renderTicker(root);
+  if (agentState.subview === 'tx') return renderTx(root);
+  if (agentState.subview === 'position') return renderPosition(root);
+  if (agentState.subview === 'ipcheck') return renderIpcheck(root);
+  if (agentState.subview === 'mailbox') return renderMailbox(root);
   if (agentState.subview === 'placeholder') return renderPlaceholder(root);
   return renderDashboard(root);
 }
@@ -197,6 +212,16 @@ function wireTiles(){
         agentState.subview = 'weekly';
       } else if (slug === 'pending') {
         agentState.subview = 'pending';
+      } else if (slug === 'ticker') {
+        agentState.subview = 'ticker';
+      } else if (slug === 'tx') {
+        agentState.subview = 'tx';
+      } else if (slug === 'position') {
+        agentState.subview = 'position';
+      } else if (slug === 'ip') {
+        agentState.subview = 'ipcheck';
+      } else if (slug === 'mail') {
+        agentState.subview = 'mailbox';
       } else {
         agentState.subview = 'placeholder';
         agentState.placeholderLabel = btn.querySelector('.ag-tile-label').textContent;
@@ -631,6 +656,666 @@ function aggregatePending(players){
   // Newest first
   out.sort((a, b) => new Date(b.placed) - new Date(a.placed));
   return out;
+}
+
+// ─── BET TICKER (global, all results) ───────────────────────────────────────
+// Aggregates every wager across all 50 players regardless of result. Newest
+// first. Read-only first pass — filters are static, click → Customer Detail
+// (Wager tab) like Pending Wagers.
+
+function renderTicker(root){
+  const m = window.AGENT_MOCK;
+  const rows = aggregateTicker(m.players);
+  const totalRisk = rows.reduce((s, r) => s + r.risk, 0);
+  const totalWin = rows.reduce((s, r) => s + r.toWin, 0);
+  const totalNet = rows.reduce((s, r) => s + (r.net || 0), 0);
+
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'Bet Ticker')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Wagers &gt; <b>Bet Ticker</b></div>
+        <div class="ag-subhdr-actions">
+          <button class="ag-action">EXPORT</button>
+          <button class="ag-action">PRINT</button>
+        </div>
+      </div>
+      <div class="ag-wfilters">
+        <div class="ag-wf-lbl">FILTERS</div>
+        <input type="text" placeholder="Ticket #" class="ag-wf-inp" aria-label="Ticket number">
+        <div class="ag-wf-cell"><label for="ag-tf-cust">Customer</label><select id="ag-tf-cust" class="ag-wf-sel"><option>--ALL--</option>${m.players.map(p => `<option>${escapeHtml(p.id)}</option>`).join('')}</select></div>
+        <div class="ag-wf-cell"><label for="ag-tf-sport">Sport</label><select id="ag-tf-sport" class="ag-wf-sel"><option>--ALL--</option><option>NBA</option><option>MLB</option><option>NHL</option><option>NFL</option></select></div>
+        <div class="ag-wf-cell"><label for="ag-tf-res">Result</label><select id="ag-tf-res" class="ag-wf-sel"><option>--ALL--</option><option>PENDING</option><option>WIN</option><option>LOSS</option></select></div>
+      </div>
+      ${rows.length === 0
+        ? '<div class="ag-wager-empty">No Wagers</div>'
+        : `<div class="ag-table-wrap">
+            <table class="ag-table ag-ticker-table">
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Customer</th>
+                  <th>Sport</th>
+                  <th>Type</th>
+                  <th>Line</th>
+                  <th>Placed</th>
+                  <th class="num">Risk</th>
+                  <th class="num">To Win</th>
+                  <th>Result</th>
+                  <th class="num">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(tickerRow).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>TOTAL (${rows.length})</th>
+                  <td colspan="5"></td>
+                  <th class="num">${fmtUSD(totalRisk)}</th>
+                  <th class="num">${fmtUSD(totalWin)}</th>
+                  <td></td>
+                  <th class="num ${totalNet > 0 ? 'ag-pos' : totalNet < 0 ? 'ag-neg' : ''}">${fmtUSD(totalNet)}</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>`
+      }
+    </div>
+  `;
+  wireBack();
+  wireTickerRows();
+}
+
+function tickerRow(r){
+  const net = r.net || 0;
+  const netClass = net > 0 ? 'ag-pos' : net < 0 ? 'ag-neg' : '';
+  return `
+    <tr data-pid="${escapeHtml(r.playerId)}" class="ag-prow">
+      <td class="ag-mono">${escapeHtml(r.ticket)}</td>
+      <td><span class="ag-link">${escapeHtml(r.playerId)}</span></td>
+      <td>${escapeHtml(r.sport)}</td>
+      <td>${escapeHtml(r.type)}</td>
+      <td class="ag-mono">${escapeHtml(r.line)}</td>
+      <td class="ag-mono">${fmtDate(r.placed)}</td>
+      <td class="num">${fmtUSD(r.risk)}</td>
+      <td class="num">${fmtUSD(r.toWin)}</td>
+      <td><span class="ag-wres ag-wres-${r.result.toLowerCase()}">${escapeHtml(r.result)}</span></td>
+      <td class="num ${netClass}">${fmtUSD(net)}</td>
+    </tr>
+  `;
+}
+
+function wireTickerRows(){
+  document.querySelectorAll('.ag-ticker-table .ag-prow').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const pid = tr.dataset.pid;
+      if (!pid) return;
+      agentState.subview = 'detail';
+      agentState.detail = { playerId: pid, tab: 'wager' };
+      render();
+    });
+  });
+}
+
+function aggregateTicker(players){
+  const out = [];
+  players.forEach(p => {
+    (p.wagers || []).forEach(w => {
+      out.push({ ...w, playerId: p.id });
+    });
+  });
+  // Newest first
+  out.sort((a, b) => new Date(b.placed) - new Date(a.placed));
+  return out;
+}
+
+// ─── TRANSACTIONS (global money movement, synthesized) ──────────────────────
+// No `transactions[]` array in agent_mock.js yet — this view derives a
+// plausible transaction log from existing fields so the tile renders real
+// content without a mock-data migration. Once the Customer Detail TRANSACTIONS
+// tab is fleshed out (thread k), this aggregator + the mock will likely move
+// to an explicit transactions[] field; until then both reuse this helper.
+//
+// Synthesized types:
+//   BET PLACED    — one row per PENDING wager (amount = -risk)
+//   BET SETTLED   — one row per WIN/LOSS wager (amount = signed net)
+//   FREEPLAY      — one row per player with p.freeplay > 0 (amount = +freeplay)
+//   SETTLEMENT    — one row per player with p.settle > 0 (amount = -settle, debit)
+
+function renderTx(root){
+  const m = window.AGENT_MOCK;
+  const rows = aggregateTx(m.players);
+  const totalAmt = rows.reduce((s, r) => s + r.amount, 0);
+  const totalCr = rows.reduce((s, r) => r.amount > 0 ? s + r.amount : s, 0);
+  const totalDr = rows.reduce((s, r) => r.amount < 0 ? s + r.amount : s, 0);
+
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'Transactions')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Wagers &gt; <b>Transactions</b></div>
+        <div class="ag-subhdr-actions">
+          <button class="ag-action">EXPORT</button>
+          <button class="ag-action">PRINT</button>
+        </div>
+      </div>
+      <div class="ag-wfilters">
+        <div class="ag-wf-lbl">FILTERS</div>
+        <div class="ag-wf-cell"><label for="ag-xf-cust">Customer</label><select id="ag-xf-cust" class="ag-wf-sel"><option>--ALL--</option>${m.players.map(p => `<option>${escapeHtml(p.id)}</option>`).join('')}</select></div>
+        <div class="ag-wf-cell"><label for="ag-xf-type">Type</label><select id="ag-xf-type" class="ag-wf-sel"><option>--ALL--</option><option>BET PLACED</option><option>BET SETTLED</option><option>FREEPLAY</option><option>SETTLEMENT</option></select></div>
+        <div class="ag-wf-cell"><label for="ag-xf-dir">Direction</label><select id="ag-xf-dir" class="ag-wf-sel"><option>--ALL--</option><option>Credit</option><option>Debit</option></select></div>
+        <div class="ag-wf-cell"><label for="ag-xf-amt">Amount</label><select id="ag-xf-amt" class="ag-wf-sel"><option>--ALL--</option><option>&gt;$100</option><option>&gt;$500</option></select></div>
+      </div>
+      ${rows.length === 0
+        ? '<div class="ag-wager-empty">No Transactions</div>'
+        : `<div class="ag-table-wrap">
+            <table class="ag-table ag-tx-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Customer</th>
+                  <th>Type</th>
+                  <th>Note</th>
+                  <th class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(txRow).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>TOTAL (${rows.length})</th>
+                  <td colspan="2"></td>
+                  <td class="num"><span class="ag-pos">${fmtUSD(totalCr)}</span> / <span class="ag-neg">${fmtUSD(totalDr)}</span></td>
+                  <th class="num ${totalAmt > 0 ? 'ag-pos' : totalAmt < 0 ? 'ag-neg' : ''}">${fmtUSD(totalAmt)}</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>`
+      }
+    </div>
+  `;
+  wireBack();
+  wireTxRows();
+}
+
+function txRow(r){
+  const amt = r.amount;
+  const amtClass = amt > 0 ? 'ag-pos' : amt < 0 ? 'ag-neg' : '';
+  const typeSlug = r.type.toLowerCase().replace(/\s+/g, '-');
+  return `
+    <tr data-pid="${escapeHtml(r.playerId)}" class="ag-prow">
+      <td class="ag-mono">${fmtDate(r.date)}</td>
+      <td><span class="ag-link">${escapeHtml(r.playerId)}</span></td>
+      <td><span class="ag-tx-type ag-tx-${typeSlug}">${escapeHtml(r.type)}</span></td>
+      <td>${escapeHtml(r.note)}</td>
+      <td class="num ${amtClass}">${fmtUSD(amt)}</td>
+    </tr>
+  `;
+}
+
+function wireTxRows(){
+  document.querySelectorAll('.ag-tx-table .ag-prow').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const pid = tr.dataset.pid;
+      if (!pid) return;
+      agentState.subview = 'detail';
+      // Deep-link to TRANSACTIONS tab (currently a stub — forward-compatible).
+      agentState.detail = { playerId: pid, tab: 'transactions' };
+      render();
+    });
+  });
+}
+
+function aggregateTx(players){
+  const out = [];
+  players.forEach(p => {
+    (p.wagers || []).forEach(w => {
+      if (w.result === 'PENDING') {
+        out.push({
+          playerId: p.id,
+          date: w.placed,
+          type: 'BET PLACED',
+          note: `${w.sport} ${w.type} ${w.line} · ${w.ticket}`,
+          amount: -Math.abs(w.risk),
+        });
+      } else {
+        out.push({
+          playerId: p.id,
+          date: w.placed,
+          type: 'BET SETTLED',
+          note: `${w.sport} ${w.type} ${w.line} · ${w.ticket} · ${w.result}`,
+          amount: w.net || 0,
+        });
+      }
+    });
+    if (p.freeplay && p.freeplay > 0) {
+      out.push({
+        playerId: p.id,
+        date: p.lastLogin || p.lastWager || new Date().toISOString().slice(0,10),
+        type: 'FREEPLAY',
+        note: 'Freeplay credit granted',
+        amount: +p.freeplay,
+      });
+    }
+    if (p.settle && p.settle > 0) {
+      out.push({
+        playerId: p.id,
+        date: p.lastWager || p.lastLogin || new Date().toISOString().slice(0,10),
+        type: 'SETTLEMENT',
+        note: 'Settlement debit',
+        amount: -p.settle,
+      });
+    }
+  });
+  // Newest first
+  out.sort((a, b) => new Date(b.date) - new Date(a.date));
+  return out;
+}
+
+// ─── POSITION (by-sport exposure over pending wagers) ───────────────────────
+// Aggregates every PENDING wager across all 50 players, grouped by sport.
+// Two synthetic worst/best-case columns help the agent reason about exposure:
+//   Risk Held  — sum of risk (what bookie collects if all bets lose)
+//   To Win     — sum of toWin (what bookie pays out if all bets win)
+//   Worst Case — -ToWin (max loss to the bookie if every leg cashes)
+//   Best Case  — +Risk (max gain to the bookie if every leg busts)
+// Row click → Pending Wagers subview. Once filter wiring lands (thread r),
+// the click will pre-select the sport filter; until then it's a convenience
+// nav from a grouped view back to the flat listing.
+
+function renderPosition(root){
+  const m = window.AGENT_MOCK;
+  const rows = aggregatePosition(m.players);
+  const totRisk = rows.reduce((s, r) => s + r.risk, 0);
+  const totWin = rows.reduce((s, r) => s + r.toWin, 0);
+  const totTickets = rows.reduce((s, r) => s + r.tickets, 0);
+
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'Position')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Wagers &gt; <b>Position</b></div>
+        <div class="ag-subhdr-actions">
+          <button class="ag-action">EXPORT</button>
+          <button class="ag-action">PRINT</button>
+        </div>
+      </div>
+      <div class="ag-wfilters">
+        <div class="ag-wf-lbl">FILTERS</div>
+        <div class="ag-wf-cell"><label for="ag-posf-grp">Group By</label><select id="ag-posf-grp" class="ag-wf-sel"><option>Sport</option><option>Type</option><option>Customer</option></select></div>
+        <div class="ag-wf-cell"><label for="ag-posf-min">Min Liability</label><select id="ag-posf-min" class="ag-wf-sel"><option>--ALL--</option><option>&gt;$100</option><option>&gt;$500</option></select></div>
+      </div>
+      ${rows.length === 0
+        ? '<div class="ag-wager-empty">No Open Position</div>'
+        : `<div class="ag-table-wrap">
+            <table class="ag-table ag-position-table">
+              <thead>
+                <tr>
+                  <th>Sport</th>
+                  <th class="num">Tickets</th>
+                  <th class="num">Risk Held</th>
+                  <th class="num">To Win</th>
+                  <th class="num">Worst Case</th>
+                  <th class="num">Best Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(positionRow).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>TOTAL (${rows.length})</th>
+                  <th class="num">${totTickets}</th>
+                  <th class="num">${fmtUSD(totRisk)}</th>
+                  <th class="num">${fmtUSD(totWin)}</th>
+                  <th class="num ag-neg">${fmtUSD(-totWin)}</th>
+                  <th class="num ag-pos">${fmtUSD(totRisk)}</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>`
+      }
+    </div>
+  `;
+  wireBack();
+  wirePositionRows();
+}
+
+function positionRow(r){
+  return `
+    <tr data-sport="${escapeHtml(r.sport)}" class="ag-prow">
+      <td><b>${escapeHtml(r.sport)}</b></td>
+      <td class="num">${r.tickets}</td>
+      <td class="num">${fmtUSD(r.risk)}</td>
+      <td class="num">${fmtUSD(r.toWin)}</td>
+      <td class="num ag-neg">${fmtUSD(-r.toWin)}</td>
+      <td class="num ag-pos">${fmtUSD(r.risk)}</td>
+    </tr>
+  `;
+}
+
+function wirePositionRows(){
+  document.querySelectorAll('.ag-position-table .ag-prow').forEach(tr => {
+    tr.addEventListener('click', () => {
+      // Future: persist sport into a filter once thread (r) is closed.
+      agentState.subview = 'pending';
+      render();
+    });
+  });
+}
+
+function aggregatePosition(players){
+  const groups = new Map();
+  players.forEach(p => {
+    (p.wagers || []).forEach(w => {
+      if (w.result !== 'PENDING') return;
+      const g = groups.get(w.sport) || { sport: w.sport, tickets: 0, risk: 0, toWin: 0 };
+      g.tickets += 1;
+      g.risk += w.risk;
+      g.toWin += w.toWin;
+      groups.set(w.sport, g);
+    });
+  });
+  // Sort by Risk Held descending — biggest exposure first.
+  return Array.from(groups.values()).sort((a, b) => b.risk - a.risk);
+}
+
+// ─── IP CHECKER (recent logins with synthetic IP/device) ────────────────────
+// Renders one row per player who has a lastLogin, with synthesized IP /
+// device / browser columns. The mock data doesn't carry per-login-event
+// records yet, so this is a one-row-per-player view (the most recent login).
+// When a real login event log lands, swap aggregateIpcheck() for one that
+// reads p.logins[] and renders one row per event.
+//
+// Synthesis is deterministic per player (djb2 hash of the player ID) so IPs
+// don't churn across renders; the last octet rolls with the login date so
+// the same player from different days reads as a different network endpoint.
+
+const IPCHECK_DEVICES  = ['Desktop','iPhone','Android','Mac','iPad'];
+const IPCHECK_BROWSERS = ['Chrome','Safari','Firefox','Edge'];
+
+function renderIpcheck(root){
+  const m = window.AGENT_MOCK;
+  const rows = aggregateIpcheck(m.players);
+  const sus = rows.filter(r => r.status === 'SUSPENDED').length;
+
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'IP Checker')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Accounts &gt; <b>IP Checker</b></div>
+        <div class="ag-subhdr-actions">
+          <button class="ag-action">EXPORT</button>
+          <button class="ag-action">PRINT</button>
+        </div>
+      </div>
+      <div class="ag-wfilters">
+        <div class="ag-wf-lbl">FILTERS</div>
+        <div class="ag-wf-cell"><label for="ag-ipf-cust">Customer</label><select id="ag-ipf-cust" class="ag-wf-sel"><option>--ALL--</option>${m.players.map(p => `<option>${escapeHtml(p.id)}</option>`).join('')}</select></div>
+        <div class="ag-wf-cell"><label for="ag-ipf-dev">Device</label><select id="ag-ipf-dev" class="ag-wf-sel"><option>--ALL--</option>${IPCHECK_DEVICES.map(d => `<option>${d}</option>`).join('')}</select></div>
+        <div class="ag-wf-cell"><label for="ag-ipf-status">Status</label><select id="ag-ipf-status" class="ag-wf-sel"><option>--ALL--</option><option>ACTIVE</option><option>SUSPENDED</option></select></div>
+        <div class="ag-wf-cell"><label for="ag-ipf-days">Window</label><select id="ag-ipf-days" class="ag-wf-sel"><option>--ALL--</option><option>Today</option><option>7 Days</option><option>14 Days</option></select></div>
+      </div>
+      ${rows.length === 0
+        ? '<div class="ag-wager-empty">No Recent Logins</div>'
+        : `<div class="ag-table-wrap">
+            <table class="ag-table ag-ipcheck-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>IP</th>
+                  <th>Device</th>
+                  <th>Browser</th>
+                  <th>Last Login</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(ipcheckRow).join('')}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>TOTAL (${rows.length})</th>
+                  <td colspan="4"></td>
+                  <th class="${sus > 0 ? 'ag-neg' : ''}">${sus} SUSP</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>`
+      }
+    </div>
+  `;
+  wireBack();
+  wireIpcheckRows();
+}
+
+function ipcheckRow(r){
+  const statusClass = r.status === 'SUSPENDED' ? 'ag-neg' : 'ag-pos';
+  return `
+    <tr data-pid="${escapeHtml(r.playerId)}" class="ag-prow">
+      <td><span class="ag-link">${escapeHtml(r.playerId)}</span></td>
+      <td class="ag-mono">${escapeHtml(r.ip)}</td>
+      <td>${escapeHtml(r.device)}</td>
+      <td>${escapeHtml(r.browser)}</td>
+      <td class="ag-mono">${fmtDate(r.lastLogin)}</td>
+      <td><b class="${statusClass}">${escapeHtml(r.status)}</b></td>
+    </tr>
+  `;
+}
+
+function wireIpcheckRows(){
+  document.querySelectorAll('.ag-ipcheck-table .ag-prow').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const pid = tr.dataset.pid;
+      if (!pid) return;
+      agentState.subview = 'detail';
+      agentState.detail = { playerId: pid, tab: 'personal' };
+      render();
+    });
+  });
+}
+
+function aggregateIpcheck(players){
+  const out = [];
+  players.forEach(p => {
+    if (!p.lastLogin) return;
+    const h  = djb2(p.id);
+    const h2 = djb2(p.id + (p.lastLogin || ''));
+    const a = 24 + (h % 200);
+    const b = 4  + (Math.floor(h / 256) % 250);
+    const c = Math.floor(h / 65536) % 256;
+    const d = h2 % 256;
+    out.push({
+      playerId: p.id,
+      ip: `${a}.${b}.${c}.${d}`,
+      device:  IPCHECK_DEVICES[h % IPCHECK_DEVICES.length],
+      browser: IPCHECK_BROWSERS[h2 % IPCHECK_BROWSERS.length],
+      lastLogin: p.lastLogin,
+      status: p.status,
+    });
+  });
+  // Newest first
+  out.sort((a, b) => new Date(b.lastLogin) - new Date(a.lastLogin));
+  return out;
+}
+
+function djb2(s){
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// ─── MAILBOX (player-facing AI FAQ chat + email support form) ───────────────
+// Two-tab support widget surfaced from the Mailbox dashboard tile. Styled and
+// worded as if a player were the user (not the agent) — the tile lets the
+// agent demo what the player-side support flow looks like. No live agent / no
+// contact phone number, per product direction. Read-only / entertainment-only:
+// AI replies come from a fixed FAQ matcher (no network call); email "send"
+// just flips a success card.
+//
+// Tab 1 (AI Support): chat-style UI. User types → first matching FAQ entry's
+// reply appears as a bot bubble. Messages persist in agentState.mailbox.messages
+// across tab switches within the same session (not localStorage-backed).
+//
+// Tab 2 (Email Support): subject + body form. On submit, replaces the form
+// with a success card. "Send another" resets back to the form.
+
+const MAILBOX_FAQ = [
+  { keywords: ['deposit','fund','add money','load'], reply: "To deposit funds, contact your agent directly. Available funding methods (cashier, crypto, peer transfer) vary by region — your agent will walk you through what's set up for your account." },
+  { keywords: ['withdraw','payout','cash out','cashout'], reply: "Withdrawals are processed by your agent. Standard payouts complete within 24–48 hours. Please use the Email Support tab for withdrawal requests so we have a written record." },
+  { keywords: ['password','forgot','reset','sign in','login'], reply: "Password resets are handled by your agent. Email support with your account ID (top-left of the screen) and we'll have your agent issue a new password within one business day." },
+  { keywords: ['parlay'], reply: "A parlay combines 2 or more wagers into a single bet. ALL legs must win for the parlay to pay out — one loss voids the whole ticket. Payouts scale exponentially with leg count. See the PARLAY tab on the main board." },
+  { keywords: ['teaser'], reply: "A teaser lets you adjust point spreads or totals in your favor across 2+ legs in exchange for a reduced payout. Standard NFL teaser is 6 points; NBA is 4 or 4.5. All legs must win." },
+  { keywords: ['if bet','ifbet','if-bet'], reply: "An If Bet is a conditional sequence: leg 1 must win (or push, depending on rule) for leg 2 to be placed. If leg 1 loses, leg 2 never fires. Useful for managing bankroll across correlated games." },
+  { keywords: ['reverse'], reply: "Reverse Action is two If Bets run both directions (A→B and B→A). On a push at the trigger, action carries forward to the next leg. Risk is 2× your per-play stake. Currently 2-leg only." },
+  { keywords: ['settle','settled','when pay','paid'], reply: "Wagers settle automatically when the game ends. Your account balance updates within minutes of the official final score. Pending wagers stay visible in your Bets list until settled." },
+  { keywords: ['freeplay','free play','bonus','promo'], reply: "Freeplays are credits granted by your agent. They risk no real money: a winning freeplay pays the net only (no stake returned); a losing freeplay costs nothing. Standard expiry is 30 days from grant." },
+  { keywords: ['limit','max','wager limit'], reply: "Wager limits are set per account and vary by sport and bet type. Tap the LIMITS tab in your account view to see your current ceilings, or email support for an adjustment request." },
+  { keywords: ['hours','open','available','closed','24'], reply: "The platform operates 24/7. Lines open as soon as they're posted by our oddsmakers, typically 12–24 hours before game start." },
+  { keywords: ['cancel','void','remove bet','take down'], reply: "Wager cancellations require agent approval and must be requested BEFORE the event starts. Email support with your ticket number and we'll review." },
+  { keywords: ['hi','hello','hey','help','start','test'], reply: "Hi! I'm the GridV2 support bot. Ask me about deposits, withdrawals, passwords, parlays, teasers, if bets, reverses, settlements, freeplays, limits, hours, or cancellations. For anything I can't answer, use the Email Support tab above." },
+];
+
+const MAILBOX_GREETING = "Hi! I'm the GridV2 support bot. Ask me about deposits, withdrawals, passwords, parlays, teasers, settlements, freeplays, limits, or hours. For anything I can't answer, use the Email Support tab above.";
+
+function renderMailbox(root){
+  const m = window.AGENT_MOCK;
+  const tab = agentState.mailbox.tab || 'ai';
+  const msgs = agentState.mailbox.messages;
+
+  const bubbles = msgs.length === 0
+    ? `<div class="ag-mb-bubble ag-mb-bot">${escapeHtml(MAILBOX_GREETING)}</div>`
+    : msgs.map(b => `<div class="ag-mb-bubble ag-mb-${b.role}">${escapeHtml(b.text)}</div>`).join('');
+
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'Mailbox')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Support &gt; <b>Mailbox</b></div>
+      </div>
+      <div class="ag-mb-tabs">
+        <button class="ag-mb-tab ${tab === 'ai' ? 'active' : ''}" data-mb-tab="ai">💬 AI Support</button>
+        <button class="ag-mb-tab ${tab === 'email' ? 'active' : ''}" data-mb-tab="email">✉ Email Support</button>
+      </div>
+      <div class="ag-mb-body">
+        ${tab === 'ai' ? renderMailboxChat(bubbles) : renderMailboxEmail()}
+      </div>
+    </div>
+  `;
+  wireBack();
+  wireMailbox();
+  // Scroll chat log to bottom on render so the latest reply is visible.
+  const log = document.getElementById('ag-mb-log');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+
+function renderMailboxChat(initialBubbles){
+  return `
+    <div class="ag-mb-chat">
+      <div class="ag-mb-log" id="ag-mb-log">${initialBubbles}</div>
+      <div class="ag-mb-input-row">
+        <input type="text" class="ag-mb-input" id="ag-mb-input" placeholder="Ask about deposits, withdrawals, parlay rules…" aria-label="Type your question" autocomplete="off">
+        <button class="ag-mb-send" id="ag-mb-send" type="button">SEND</button>
+      </div>
+      <div class="ag-mb-disclaimer">AI replies are based on a fixed FAQ. For anything else, use Email Support.</div>
+    </div>
+  `;
+}
+
+function renderMailboxEmail(){
+  if (agentState.mailbox.emailSent) {
+    return `
+      <div class="ag-mb-email-success">
+        <div class="ag-mb-success-icon">✓</div>
+        <div class="ag-mb-success-title">Message sent</div>
+        <div class="ag-mb-success-msg">Your message has been sent to <b>support@gridv2.test</b>. We'll reply within 24 hours.</div>
+        <button class="ag-mb-email-reset-btn" id="ag-mb-email-reset" type="button">Send another</button>
+      </div>
+    `;
+  }
+  return `
+    <form class="ag-mb-email-form" id="ag-mb-email-form">
+      <div class="ag-mb-email-to">To: <span class="ag-mono">support@gridv2.test</span></div>
+      <label class="ag-mb-email-lbl" for="ag-mb-email-sub">Subject</label>
+      <input type="text" class="ag-mb-email-inp" id="ag-mb-email-sub" placeholder="Brief summary of your issue" required>
+      <label class="ag-mb-email-lbl" for="ag-mb-email-body">Message</label>
+      <textarea class="ag-mb-email-area" id="ag-mb-email-body" rows="6" placeholder="Describe your issue in detail…" required></textarea>
+      <button type="submit" class="ag-mb-email-send">SEND TO SUPPORT</button>
+    </form>
+  `;
+}
+
+function wireMailbox(){
+  // Tab switching (re-renders to swap chat/email body).
+  document.querySelectorAll('.ag-mb-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      agentState.mailbox.tab = t.dataset.mbTab;
+      render();
+    });
+  });
+
+  // AI chat send — direct DOM append, no full re-render (keeps input focus).
+  const input = document.getElementById('ag-mb-input');
+  const sendBtn = document.getElementById('ag-mb-send');
+  const handleSend = () => {
+    const text = (input?.value || '').trim();
+    if (!text) return;
+    appendChat('user', text);
+    if (input) { input.value = ''; input.focus(); }
+    // Tiny delay so the bot reply doesn't appear simultaneously with the user
+    // bubble — reads as a more natural turn-taking interaction.
+    setTimeout(() => appendChat('bot', faqMatch(text)), 250);
+  };
+  if (sendBtn) sendBtn.addEventListener('click', handleSend);
+  if (input) input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  });
+
+  // Email form submit.
+  const emForm = document.getElementById('ag-mb-email-form');
+  if (emForm) emForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const sub = document.getElementById('ag-mb-email-sub')?.value.trim();
+    const body = document.getElementById('ag-mb-email-body')?.value.trim();
+    if (!sub || !body) return;
+    agentState.mailbox.emailSent = true;
+    render();
+  });
+
+  // "Send another" reset.
+  const resetBtn = document.getElementById('ag-mb-email-reset');
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    agentState.mailbox.emailSent = false;
+    render();
+  });
+}
+
+function appendChat(role, text){
+  agentState.mailbox.messages.push({ role, text, ts: new Date().toISOString() });
+  const log = document.getElementById('ag-mb-log');
+  if (!log) return;
+  const bubble = document.createElement('div');
+  bubble.className = `ag-mb-bubble ag-mb-${role}`;
+  bubble.textContent = text;
+  log.appendChild(bubble);
+  log.scrollTop = log.scrollHeight;
+}
+
+function faqMatch(text){
+  const lc = text.toLowerCase();
+  for (const entry of MAILBOX_FAQ) {
+    for (const kw of entry.keywords) {
+      if (lc.includes(kw)) return entry.reply;
+    }
+  }
+  return "I don't have an answer for that. Try Email Support (tab above) for a written reply within 24 hours, or rephrase using terms like 'deposit', 'withdraw', 'parlay', 'teaser', 'settle', 'freeplay', or 'limit'.";
 }
 
 // ─── CUSTOMER DETAIL ────────────────────────────────────────────────────────

@@ -51,6 +51,8 @@ if (process.env.SKIP_BUNDLE === '1') {
   bundle('src/main.js', 'bundle.js');
   console.log('Bundling src/mobile/main.js → bundle_mobile.js');
   bundle('src/mobile/main.js', 'bundle_mobile.js');
+  console.log('Bundling src/agent-main.js → bundle_agent.js');
+  bundle('src/agent-main.js', 'bundle_agent.js');
 }
 
 // ─── Stage 3: load + run each suite ─────────────────────────────────────
@@ -67,6 +69,7 @@ const suites = [
   './verify_mobile_teaser.cjs',
   './verify_mobile_teaser_gating.cjs',
   './verify_reverse.cjs',
+  './verify_agent.cjs',
 ];
 
 const only = process.env.ONLY ? process.env.ONLY.split(',').map(s => s.trim()) : null;

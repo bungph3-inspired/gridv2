@@ -40,6 +40,9 @@ function setup() {
     mockJs:      fs.readFileSync(path.join(PROJ, 'public/mock_data.js'), 'utf8'),
     desktopBundle: fs.readFileSync(path.join(PROJ, 'verify', 'bundle.js'), 'utf8'),
     mobileBundle:  fs.readFileSync(path.join(PROJ, 'verify', 'bundle_mobile.js'), 'utf8'),
+    agentHtml:     fs.readFileSync(path.join(PROJ, 'agent.html'), 'utf8'),
+    agentMockJs:   fs.readFileSync(path.join(PROJ, 'public/agent_mock.js'), 'utf8'),
+    agentBundle:   fs.readFileSync(path.join(PROJ, 'verify', 'bundle_agent.js'), 'utf8'),
   };
   return _cache;
 }
@@ -112,6 +115,20 @@ async function createMobileWindow(seeds = { bs_mock: '1', bs_bets: '[]', bs_bal:
   );
 }
 
+// Agent portal factory. Loads agent.html with the agent_mock fixture + the
+// agent bundle. Default seeds with bs_agent='TEST_AGENT' so the login splash
+// is hidden by default and renderDashboard fires. Pass bs_agent: null to
+// test the splash gate itself.
+async function createAgentWindow(seeds = { bs_agent: 'TEST_AGENT' }, opts = {}) {
+  const c = setup();
+  return _buildWindow(
+    c.agentHtml,
+    '<script src="/agent_mock.js" onerror="window.__noAgentMock=true"></script>',
+    '<script type="module" src="/src/agent-main.js"></script>',
+    c.agentBundle, seeds, c.agentMockJs, opts.waitMs
+  );
+}
+
 function createAssert(fails, opts = {}) {
   const log = opts.quiet ? () => {} : console.log.bind(console);
   return (cond, msg) => {
@@ -127,6 +144,7 @@ module.exports = {
   setup,
   createDesktopWindow,
   createMobileWindow,
+  createAgentWindow,
   createAssert,
   closeAll,
   tick,

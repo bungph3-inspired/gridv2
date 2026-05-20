@@ -2814,6 +2814,12 @@
   setApiHooks({ renderBoard, showBoardMsg, showToast });
   setBetsHooks({ renderBoard, buildGameBlock, showBoardMsg, showToast, updateBalDisp, buildAltChevron });
   function init() {
+    const pid = localStorage.getItem("bs_player");
+    if (!pid) {
+      document.getElementById("login-splash").classList.add("show");
+      return;
+    }
+    setAccountDisp(pid);
     updateBalDisp();
     updateBetsBtn();
     renderSidebar();
@@ -2835,6 +2841,35 @@
     localStorage.setItem("bs_bal", state.balance);
     localStorage.setItem("bs_bets", JSON.stringify(state.placedBets));
   });
+  function submitPlayerLogin(e) {
+    e.preventDefault();
+    const id = (document.getElementById("login-id").value || "").trim();
+    if (!id) return false;
+    localStorage.setItem("bs_player", id);
+    document.getElementById("login-splash").classList.remove("show");
+    setAccountDisp(id);
+    updateBalDisp();
+    updateBetsBtn();
+    renderSidebar();
+    setMode("straight");
+    setOnline(state.mockMode || !!state.apiKey);
+    if (state.mockMode || state.apiKey) {
+      fetchAndRender(getActiveSportKey());
+      startAuto();
+    } else {
+      showBoardMsg("key");
+    }
+    return false;
+  }
+  function logoutPlayer() {
+    if (!confirm("Sign out? Your balance and bets are kept locally.")) return;
+    localStorage.removeItem("bs_player");
+    location.reload();
+  }
+  function setAccountDisp(id) {
+    const el = document.getElementById("acct-disp");
+    if (el) el.textContent = id;
+  }
   Object.assign(window, {
     setMode,
     onContinue,
@@ -2869,6 +2904,8 @@
     resetBalance,
     toggleMockMode,
     toggleAltLines,
-    computeReverseNet
+    computeReverseNet,
+    submitPlayerLogin,
+    logoutPlayer
   });
 })();
