@@ -4,6 +4,16 @@ Derived from `AUDIT.md` (2026-05-13). Ordered by impact. Check off as you go.
 
 > **Next session pickup (2026-05-14):** Quick wins ✅, Accessibility ✅, Convention compliance ✅, Polish ✅. All AUDIT.md items closed except the two Deferred entries (CSP, font self-host). Default to `bash scripts/safe-edit.sh` (or an inline `python3` heredoc) for any non-trivial edit on `index.html`, `index_mobile.html`, `src/style.css`, `src/bets.js`, or `PROJECT.md` — these all hit the Edit-tool size cap during the cont. 3/4/5 batches.
 
+## Agent Portal — open threads (post-2026-05-19)
+
+- [x] **(q) Verify suite regression** — _Closed 2026-05-19 (cont.): root cause was the 5-18 player-login splash gating `init()` on `localStorage.bs_player`. Verify harness never seeded the key, so the splash blocked board render. Fixed in `verify/harness.cjs`: `createDesktopWindow` now auto-seeds `bs_player: 'TEST01'` unless the caller explicitly passes `bs_player: null`. All 11 suites green._
+- [ ] **(l-cont) Remaining 7 dashboard tiles** — Cashier / Add New / Mass Edit / Position / Bet Ticker / IP Checker / Transactions / Mailbox. Bet Ticker is the next-easiest (reuse pending-wagers shape, settled + unfiltered).
+- [ ] **(r) Live filters on Pending Wagers + Weekly Figures activity window** — currently filter rows are static UI. Wire when row counts justify.
+- [ ] **(k) Remaining 8 Customer Detail tabs** — Lineset / Transactions / History / Communications / Changes / Connections / Casino / Backbone (still stubs).
+- [ ] **(n) `verify_agent.cjs` jsdom suite** — login gate, dashboard render, tile routing (incl. weekly + pending), detail tab switching, logout.
+- [ ] **(o) Mobile agent build** — `agent.html` is desktop-only.
+- [ ] **(p) Customer Detail editability pass** — convert PERSONAL/LIMITS form-display to editable inputs with SAVE persisting to localStorage-backed mock data.
+
 ## Quick wins (small diffs, high value)
 
 - [x] **Drop `user-scalable=no`** — `index_mobile.html:5`. Remove `maximum-scale=1.0, user-scalable=no`. If iOS input-focus zoom becomes a problem, bump input `font-size` to 16px.

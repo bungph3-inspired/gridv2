@@ -33,7 +33,7 @@ const FILES = [
   ['src/bets.js',         30000,  true],
   ['src/main.js',         30000,  true],
   ['src/mobile/main.js',  40000,  true],
-  ['src/agent.js',         8000,  true],
+  ['src/agent.js',        30000,  true],
   ['src/agent-main.js',    1000,  true],
   ['public/agent_mock.js', 4000,  true],
   ['src/style.css',       40000,  false],

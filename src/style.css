@@ -1646,4 +1646,24 @@
   .ag-wres-pending { @apply bg-amber-100 text-amber-800 border-amber-300; }
   .ag-wres-win     { @apply bg-green-100 text-green-800 border-green-300; }
   .ag-wres-loss    { @apply bg-red-100 text-red-800 border-red-300; }
+
+  /* ── Weekly Figures + Pending Wagers tiles (2026-05-19) ── */
+  /* Subhdr select dropdown styled as an ag-action button. */
+  .ag-select       { @apply bg-bet-panel border border-bet-border text-bet-text text-xs px-2 py-1 rounded cursor-pointer; }
+
+  /* Weekly Figures table — inherits .ag-table, just a marker for delegated row clicks. */
+  .ag-weekly-table tbody tr { @apply cursor-pointer; }
+
+  /* Pending Wagers table — same pattern. */
+  .ag-pending-table tbody tr { @apply cursor-pointer; }
+
+  /* WEEKLY > SETTINGS modal body (reuses .pmoverlay / .pmodal / .pmh / .pmbody chrome). */
+  .ag-wk-info-btn  { @apply w-full bg-bet-panel border border-bet-border text-bet-text-sm font-display text-[10px] uppercase tracking-wider py-1.5 rounded cursor-pointer hover:bg-bet-alt; }
+  .ag-wk-row       { @apply flex flex-col gap-1 mt-2; }
+  .ag-wk-lbl       { @apply font-display text-[10px] uppercase tracking-wider text-bet-text-sm; }
+  .ag-wk-cols      { @apply grid grid-cols-2 gap-1 bg-bet-alt rounded p-2; }
+  .ag-wk-cb        { @apply flex items-center gap-2 text-xs cursor-pointer text-bet-darker; }
+  .ag-wk-cb input  { @apply accent-bet-accent; }
+  .ag-wk-sel       { @apply border border-bet-border rounded px-2 py-1 text-sm bg-white; }
+  .ag-wk-btns      { @apply flex gap-2 mt-3 justify-end; }
 }

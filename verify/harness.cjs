@@ -88,6 +88,12 @@ async function _buildWindow(htmlBlob, mockScriptSelector, mainScriptSelector, bu
 
 async function createDesktopWindow(seeds = { bs_mock: '1' }, opts = {}) {
   const c = setup();
+  // 2026-05-19: the 2026-05-18 work added a player login gate to init() that
+  // blocks board rendering until localStorage.bs_player is set. Auto-seed it
+  // so existing suites (which don't know about the gate) keep working. A
+  // future "test the login splash" suite can opt out by passing
+  // bs_player: null explicitly.
+  if (!('bs_player' in seeds)) seeds = { bs_player: 'TEST01', ...seeds };
   return _buildWindow(
     c.desktopHtml,
     '<script src="/mock_data.js" onerror="window.__noMockData=true"></script>',
