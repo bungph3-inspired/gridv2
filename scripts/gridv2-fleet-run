@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# gridv2-fleet-run <agent>
+# Single entrypoint for every cron-driven agent invocation.
+# Handles: kill switch, env sourcing, working-dir sync, logging, exit code.
+#
+# Source of truth: projects/GridV2/runbooks/07-agent-fleet-orchestration.md Phase E.
+# Install to VPS as /usr/local/bin/gridv2-fleet-run (mode 0755 root:root).
+
+set -euo pipefail
+umask 0027
+
+AGENT="${1:?usage: gridv2-fleet-run <architect|coder|reviewer>}"
+case "$AGENT" in
+  architect|coder|reviewer) ;;
+  *) echo "unknown agent: $AGENT" >&2; exit 2 ;;
+esac
+
+LOG_DIR=/var/log/gridv2
+LOG_FILE="$LOG_DIR/agent-$(date +%Y-%m-%d).log"
+mkdir -p "$LOG_DIR"
+
+log() { printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$AGENT" "$*" | tee -a "$LOG_FILE" ; }
+
+# --- Kill switch ---
+if [ -e /etc/gridv2/agents.paused ]; then
+  log "kill switch present (/etc/gridv2/agents.paused) — skipping"
+  exit 0
+fi
+
+# Wager-logger conflict avoidance: SKIPPED for v1 per locked decision 2026-05-23.
+# Temporal separation (fleet 23:00-05:00 PT vs wager-logger daytime) +
+# Max 20x headroom make collision unlikely. If a real collision ever shows up
+# in the logs as `claude exit=1` with a rate-limit error, add the gist-via-gh
+# pattern retroactively — see runbook 07 Phase F.
+
+# --- Env + working dir ---
+set -a
+. /etc/gridv2/env.agents
+set +a
+
+WORKDIR=/var/lib/gridv2/agent-work/$AGENT
+PROMPT_FILE=$WORKDIR/.fleet/prompts/$AGENT.md
+
+cd "$WORKDIR"
+log "syncing $WORKDIR with origin/main"
+git fetch --all --prune --quiet
+git reset --hard origin/main --quiet
+git clean -fd --quiet
+
+if [ ! -r "$PROMPT_FILE" ]; then
+  log "missing prompt file: $PROMPT_FILE — aborting"
+  exit 3
+fi
+
+PROMPT=$(cat "$PROMPT_FILE")
+
+# --- Run claude -p ---
+# Note: prompt passed as arg, never piped on stdin (runbook 06 gotcha 2026-05-23
+# — piped stdin breaks `claude -p` mode silently).
+log "starting claude -p (prompt $(wc -c < "$PROMPT_FILE") bytes)"
+set +e
+claude -p "$PROMPT" >> "$LOG_FILE" 2>&1
+EXIT=$?
+set -e
+log "claude exit=$EXIT"
+exit "$EXIT"

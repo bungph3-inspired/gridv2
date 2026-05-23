@@ -9,3 +9,11 @@ handoff/
 .DS_Store
 *.log
 .vite/
+
+# Personal financial data — never commit
+gridv2-expenses*.xlsx
+gridv2-expenses*.xls
+.~lock.*#
+
+# Local backup files
+*.BACKUP.*
