@@ -1,0 +1,54 @@
+name: Auto-merge fleet-logs to main
+
+# Runs daily at 05:30 PT (after Reviewer agent finishes) and fast-forwards
+# `fleet-logs` branch onto `main`. Lets agents push session-log markdown to a
+# non-protected branch while keeping `main` strictly PR-only.
+#
+# See projects/GridV2/runbooks/07-agent-fleet-orchestration.md Phase D.5.
+
+on:
+  schedule:
+    # 05:30 PT — runs in UTC. 12:30 UTC during PDT, 13:30 UTC during PST.
+    # Run both so DST changes don't drop a day; merge is a no-op if there's nothing new.
+    - cron: '30 12 * * *'
+    - cron: '30 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_FLEET_LOGS }}
+
+      - name: Fast-forward main from fleet-logs
+        run: |
+          set -euo pipefail
+          git config user.name  "gridv2-fleet-merger"
+          git config user.email "fleet@azuresb.com"
+
+          # Try to fetch fleet-logs. If absent (e.g. Architect hasn't run yet), no-op.
+          if ! git fetch origin fleet-logs:fleet-logs 2>/dev/null; then
+            echo "fleet-logs branch missing — nothing to merge"
+            exit 0
+          fi
+
+          # Only fast-forward; refuse if fleet-logs has diverged from main.
+          if git merge-base --is-ancestor main fleet-logs; then
+            if git diff --quiet main fleet-logs; then
+              echo "fleet-logs identical to main — nothing to merge"
+              exit 0
+            fi
+            git merge --ff-only fleet-logs
+            git push origin main
+            echo "Merged fleet-logs into main"
+          else
+            echo "fleet-logs is not a fast-forward of main — manual review required"
+            exit 1
+          fi
