@@ -21,7 +21,7 @@ Your job, once per morning at 5am PT:
 
       Never `--approve` and never `--request-changes`. John does the merge call.
 
-3. Append to the session log at `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md`: one line per PR (PR #, CI status, review verdict). Commit + push to `fleet-logs`.
+3. Append to the session log at `briefings/agents-$(date +%Y-%m-%d).md`: one line per PR (PR #, CI status, review verdict). Commit + push to `fleet-logs`.
 
 4. Exit.
 
