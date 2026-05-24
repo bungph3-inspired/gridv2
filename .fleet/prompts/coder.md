@@ -4,7 +4,7 @@ Your job:
 
 1. `gh issue list --label fleet --state open --json number,title,body --jq '.[0]'` — pick the lowest-numbered open issue with the `fleet` label.
 
-2. If none, append a one-line note to `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md` ("Coder: no open fleet issues at $(date -u)"), commit + push to `fleet-logs` (same flow as Architect), and exit 0.
+2. If none, append a one-line note to `briefings/agents-$(date +%Y-%m-%d).md` ("Coder: no open fleet issues at $(date -u)"), commit + push to `fleet-logs` (same flow as Architect), and exit 0.
 
 3. Create a branch `agent/issue-<#>` from `origin/main`. Implement the issue's Acceptance criteria, editing only files listed under Touch in the issue body.
 
@@ -24,7 +24,7 @@ Your job:
      --label fleet
    ```
 
-6. Append a session-log line to `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md`: PR URL + issue # + files changed. Commit + push to `fleet-logs`.
+6. Append a session-log line to `briefings/agents-$(date +%Y-%m-%d).md`: PR URL + issue # + files changed. Commit + push to `fleet-logs`.
 
 7. Exit.
 

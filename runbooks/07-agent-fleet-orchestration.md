@@ -48,7 +48,7 @@
 | `/var/log/gridv2/agent-YYYY-MM-DD.log` | Per-day combined log of every agent invocation (start ts, prompt hash, exit code, stdout tail). Rotated weekly via logrotate. |
 | `/usr/local/bin/gridv2-fleet-run` wrapper script | Single entrypoint cron calls. Handles: kill-switch check, env sourcing, working-dir setup, logging, exit-code propagation. (Wager-logger conflict check is skipped in v1 — see Phase F.) |
 | Crontab entries (Architect 11pm, Coder 12am–5am, Reviewer 5am, all PT) | The actual schedule. Each entry is a one-liner calling `gridv2-fleet-run <agent>`. |
-| Daily session log written by Architect's morning task | Markdown file committed to `projects/GridV2/briefings/agents-YYYY-MM-DD.md` summarizing the night's PRs. Feeds the workspace briefing aggregator. |
+| Daily session log written by Architect's morning task | Markdown file committed to `briefings/agents-YYYY-MM-DD.md` summarizing the night's PRs. Feeds the workspace briefing aggregator. |
 
 **Out of scope here (deferred to a later runbook):**
 - Auth implementation (login routes, password hashing, session cookies) — that's the AUTH_DESIGN.md → implementation runbook, runs separately
@@ -288,7 +288,7 @@ Your job tonight, in order:
    - Title: the block title
    - Body: the block's Context + Acceptance + Touch sections, plus a footer line `Filed by Architect agent on $(date -u +%Y-%m-%dT%H:%M:%SZ).`
    - Label: `fleet`
-3. After all issues are filed, write a session log to `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md` containing: the spec filename, the issue numbers filed, any tasks you refused (and why), and the timestamp range. Commit and push to the **`fleet-logs`** branch (`git checkout -B fleet-logs origin/main && git add ... && git commit -m "fleet log YYYY-MM-DD" && git push -f origin fleet-logs`). The auto-merge GH Action (Phase D.5) will rebase + fast-forward this onto `main` at 05:30 PT, after Reviewer finishes. Do NOT push to `main` directly — `main` is protected.
+3. After all issues are filed, write a session log to `briefings/agents-$(date +%Y-%m-%d).md` containing: the spec filename, the issue numbers filed, any tasks you refused (and why), and the timestamp range. Commit and push to the **`fleet-logs`** branch (`git checkout -B fleet-logs origin/main && git add ... && git commit -m "fleet log YYYY-MM-DD" && git push -f origin fleet-logs`). The auto-merge GH Action (Phase D.5) will rebase + fast-forward this onto `main` at 05:30 PT, after Reviewer finishes. Do NOT push to `main` directly — `main` is protected.
 4. Exit.
 
 Hard rules:
@@ -307,7 +307,7 @@ You are the Coder agent for the GridV2 project.
 Your job:
 
 1. `gh issue list --label fleet --state open --json number,title,body --jq '.[0]'` — pick the lowest-numbered open issue with the `fleet` label.
-2. If none, write a one-line note to the session log file at `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md` ("Coder: no open fleet issues at $(date -u)") and exit.
+2. If none, write a one-line note to the session log file at `briefings/agents-$(date +%Y-%m-%d).md` ("Coder: no open fleet issues at $(date -u)") and exit.
 3. Create a branch `agent/issue-<#>` from origin/main, implement the issue's Acceptance criteria, restricting edits to the paths listed under Touch.
 4. Run `npm ci && npm run build` locally. If the build fails, append a note to the session log explaining the failure and exit — do NOT push a broken branch.
 5. `git push -u origin agent/issue-<#>` then `gh pr create --base main --head agent/issue-<#> --title "Closes #<#>: <title>" --body "<your work summary>\n\nCloses #<#>." --label fleet`.

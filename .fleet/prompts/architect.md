@@ -9,10 +9,10 @@ Your job tonight, in order:
    - Body: the block's Context + Acceptance + Touch sections, plus a footer line `Filed by Architect agent on $(date -u +%Y-%m-%dT%H:%M:%SZ).`
    - Label: `fleet` (create it once with `gh label create fleet --color FBCA04 --description "Agent fleet work"` if `gh issue create` errors with "Could not resolve label fleet")
 
-3. After all issues are filed, write a session log to `projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md` containing: the spec filename, the issue numbers filed, any tasks you refused (and why), and the timestamp range. Commit and push to the **`fleet-logs`** branch:
+3. After all issues are filed, write a session log to `briefings/agents-$(date +%Y-%m-%d).md` containing: the spec filename, the issue numbers filed, any tasks you refused (and why), and the timestamp range. Commit and push to the **`fleet-logs`** branch:
    ```
    git checkout -B fleet-logs origin/main
-   git add projects/GridV2/briefings/agents-$(date +%Y-%m-%d).md
+   git add briefings/agents-$(date +%Y-%m-%d).md
    git commit -m "fleet log $(date +%Y-%m-%d)"
    git push -f origin fleet-logs
    ```

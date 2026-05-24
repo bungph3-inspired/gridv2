@@ -57,9 +57,13 @@ PROMPT=$(cat "$PROMPT_FILE")
 # --- Run claude -p ---
 # Note: prompt passed as arg, never piped on stdin (runbook 06 gotcha 2026-05-23
 # — piped stdin breaks `claude -p` mode silently).
+# --dangerously-skip-permissions: required for headless automated runs (claude -p
+# otherwise prompts for approval on each Bash/Write call, blocking the fleet).
+# Safe in this context because prompts are vetted in-repo, Coder is restricted to
+# the issue's Touch paths, and the PAT is scoped to one repo with limited perms.
 log "starting claude -p (prompt $(wc -c < "$PROMPT_FILE") bytes)"
 set +e
-claude -p "$PROMPT" >> "$LOG_FILE" 2>&1
+claude -p --dangerously-skip-permissions "$PROMPT" >> "$LOG_FILE" 2>&1
 EXIT=$?
 set -e
 log "claude exit=$EXIT"
