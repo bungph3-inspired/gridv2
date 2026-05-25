@@ -8,26 +8,7 @@
    2. @theme { --tokens: ... }         — defines design tokens that auto-
                                          generate utility classes
    3. @layer base { ... }              — base element styles (html, body)
-   4. @layer components { ...   /* SUBAGENTS subview — runbook 08 Phase D.3, 2026-05-24 */
-  .ag-sa-create            { @apply bg-bet-panel border border-bet-border rounded p-4 mb-4 mx-4 mt-4; }
-  .ag-sa-create-title      { @apply font-display text-sm font-bold uppercase tracking-wider text-bet-darker mb-3; }
-  .ag-sa-create-form       { @apply flex flex-wrap gap-2 items-center; }
-  .ag-sa-create-form input { @apply bg-white border border-bet-border rounded px-3 py-2 font-body text-sm text-bet-text outline-none focus:border-bet-brand min-w-[200px] flex-1; }
-  .ag-sa-create-btn        { @apply bg-bet-accent text-white font-display text-xs font-bold tracking-wider px-4 py-2 rounded cursor-pointer border-none uppercase hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed; }
-  .ag-sa-form-error        { @apply text-red-600 text-sm mt-2 min-h-[1.2em]; }
-  .ag-sa-table-wrap        { @apply mx-4 mb-4; }
-  .ag-sa-table             { @apply w-full; }
-  .ag-sa-loading           { @apply text-bet-text-sm text-sm py-8 text-center italic; }
-  .ag-sa-err               { @apply text-red-600 text-sm py-4 text-center bg-red-50 border border-red-200 rounded; }
-  .ag-sa-empty             { @apply flex flex-col items-center gap-2 py-12 text-center bg-bet-panel border border-bet-border rounded; }
-  .ag-sa-empty-title       { @apply font-display text-base font-bold text-bet-darker; }
-  .ag-sa-empty-msg         { @apply text-sm text-bet-text-sm; }
-  .ag-sa-actions           { @apply flex gap-1 flex-wrap; }
-  .ag-sa-act               { @apply bg-bet-panel border border-bet-border text-bet-text font-display text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded cursor-pointer hover:bg-bet-alt; }
-  .ag-sa-indent            { @apply text-bet-text-sm font-mono; }
-  .ag-sa-when              { @apply font-mono text-xs text-bet-text-sm; }
-  .ag-sa-scope-toggle      { /* uses .ag-action — added qualifier below for emphasis */ }
-}        — repeated component patterns via
+   4. @layer components { ... }        — repeated component patterns via
                                          @apply (mirrors the legacy v1 .gblock,
                                          .obtn, .pbtn, etc.)
 
@@ -1729,4 +1710,23 @@
   .ag-wk-cb input  { @apply accent-bet-accent; }
   .ag-wk-sel       { @apply border border-bet-border rounded px-2 py-1 text-sm bg-white; }
   .ag-wk-btns      { @apply flex gap-2 mt-3 justify-end; }
+
+  /* SUBAGENTS subview — runbook 08 Phase D.3, 2026-05-24 */
+  .ag-sa-create            { @apply bg-bet-panel border border-bet-border rounded p-4 mb-4 mx-4 mt-4; }
+  .ag-sa-create-title      { @apply font-display text-sm font-bold uppercase tracking-wider text-bet-darker mb-3; }
+  .ag-sa-create-form       { @apply flex flex-wrap gap-2 items-center; }
+  .ag-sa-create-form input { @apply bg-white border border-bet-border rounded px-3 py-2 font-body text-sm text-bet-text outline-none focus:border-bet-brand min-w-[200px] flex-1; }
+  .ag-sa-create-btn        { @apply bg-bet-accent text-white font-display text-xs font-bold tracking-wider px-4 py-2 rounded cursor-pointer border-none uppercase hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .ag-sa-form-error        { @apply text-red-600 text-sm mt-2 min-h-[1.2em]; }
+  .ag-sa-table-wrap        { @apply mx-4 mb-4; }
+  .ag-sa-table             { @apply w-full; }
+  .ag-sa-loading           { @apply text-bet-text-sm text-sm py-8 text-center italic; }
+  .ag-sa-err               { @apply text-red-600 text-sm py-4 text-center bg-red-50 border border-red-200 rounded; }
+  .ag-sa-empty             { @apply flex flex-col items-center gap-2 py-12 text-center bg-bet-panel border border-bet-border rounded; }
+  .ag-sa-empty-title       { @apply font-display text-base font-bold text-bet-darker; }
+  .ag-sa-empty-msg         { @apply text-sm text-bet-text-sm; }
+  .ag-sa-actions           { @apply flex gap-1 flex-wrap; }
+  .ag-sa-act               { @apply bg-bet-panel border border-bet-border text-bet-text font-display text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded cursor-pointer hover:bg-bet-alt; }
+  .ag-sa-indent            { @apply text-bet-text-sm font-mono; }
+  .ag-sa-when              { @apply font-mono text-xs text-bet-text-sm; }
 }
