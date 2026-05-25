@@ -1,21 +1,31 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  verify_agent.cjs — Agent portal verify suite
 //  ────────────────────────────────────────────────────────────────────────────
-//  Covers everything shipped in the 2026-05-18/19 agent portal work:
-//   1. Login splash gate (visible without bs_agent, hidden with it)
-//   2. Dashboard render (KPI strip + 11 tiles + agent ID in header)
-//   3. Tile routing for each of the 6 real subviews:
-//        weekly / pending / ticker / tx / position / ipcheck
-//      (asserts crumb breadcrumb + the subview's table renders)
-//   4. Customer Detail nav: Management tile → row click → 11 tabs visible
-//      → PERSONAL active by default → LIMITS tab swap renders ag-lim-table
-//   5. Mailbox interactions: AI chat send (greeting + user bubble + bot
-//      reply with "deposit" keyword), tab switch to Email, form submit
-//      flips to success card, "Send another" reset restores form.
+//  Updated 2026-05-24 for runbook 08 Phase D cutover. The legacy bs_agent
+//  localStorage gate was replaced with a real /api/me cookie-session probe;
+//  auth state for jsdom is supplied via the harness fetch stub controlled by
+//  createAgentWindow({ authedAs, loginStatus }).
+//
+//  Coverage:
+//    1. Splash gate: authedAs:null → /api/me returns 401 → splash stays visible
+//    2. Dashboard render: authedAs:'TEST_AGENT' → /api/me 200 → splash hides,
+//       KPI strip + 11 tiles + header chip render with the authed username
+//    3. Tile routing for the 6 real subviews:
+//         weekly / pending / ticker / tx / position / ipcheck
+//       (asserts crumb breadcrumb + the subview's table or empty-state renders)
+//    4. Customer Detail nav: Management tile → row click → 11 tabs visible
+//       → PERSONAL active by default → LIMITS tab swap renders ag-lim-table
+//    5. Mailbox interactions: AI chat send (greeting + user bubble + bot
+//       reply with "deposit" keyword), tab switch to Email, form submit
+//       flips to success card, "Send another" reset restores form.
+//    6. Login form submit: starting from splash, posting valid creds clears
+//       splash + renders dashboard with the posted username in the chip.
+//       Proves the new auth flow end-to-end (Phase D.1 + D.2).
 //
 //  Coverage tier: mid — exercises every shipped surface without exhaustive
 //  data assertions. Skips logout (calls confirm() + location.reload, both
-//  awkward in jsdom).
+//  awkward in jsdom) and the Subagents subview (covered by Phase E once it
+//  ships real /api/agents fetches against a live API).
 // ════════════════════════════════════════════════════════════════════════════
 
 module.exports = {
@@ -24,30 +34,39 @@ module.exports = {
     const fails = [];
     const assert = harness.createAssert(fails);
 
-    // ── 1. Login gate ──────────────────────────────────────────────────────
-    console.log('\n--- 1. Login splash gate ---');
+    // ── 1. Splash gate (no session) ────────────────────────────────────────
+    console.log('\n--- 1. Splash gate when /api/me returns 401 ---');
     {
-      const { doc } = await harness.createAgentWindow({ bs_agent: null });
+      const { doc } = await harness.createAgentWindow({ authedAs: null });
       const splash = doc.getElementById('login-splash');
       const agentView = doc.getElementById('agent-view');
       assert(!!splash, 'login-splash element exists');
-      assert(splash && splash.classList.contains('show'), 'splash has .show class without bs_agent');
+      assert(splash && splash.classList.contains('show'),
+             'splash has .show class when /api/me returns 401');
       assert(agentView && agentView.children.length === 0,
-             'agent-view empty without bs_agent (got ' + (agentView ? agentView.children.length : 'NO VIEW') + ' children)');
+             'agent-view empty when unauthenticated (got ' +
+               (agentView ? agentView.children.length : 'NO VIEW') + ' children)');
+      const loginForm = doc.getElementById('login-form');
+      assert(!!loginForm, 'login form rendered inside splash');
+      const loginId = doc.getElementById('login-id');
+      const loginPw = doc.getElementById('login-pw');
+      assert(!!loginId && !!loginPw, 'username + password fields present');
     }
 
-    // ── 2. Dashboard render with bs_agent seeded ───────────────────────────
-    console.log('\n--- 2. Dashboard render with bs_agent ---');
+    // ── 2. Dashboard render (resumed session) ──────────────────────────────
+    console.log('\n--- 2. Dashboard render when /api/me returns 200 ---');
     {
-      const { doc } = await harness.createAgentWindow({ bs_agent: 'TEST_AGENT' });
+      const { doc } = await harness.createAgentWindow({ authedAs: 'TEST_AGENT' });
       const splash = doc.getElementById('login-splash');
       const tiles = doc.querySelectorAll('.ag-tile');
       const kpis = doc.querySelectorAll('.ag-kpi-cell');
       const headerId = doc.querySelector('.ag-id')?.textContent;
-      assert(splash && !splash.classList.contains('show'), 'splash .show removed after login');
+      assert(splash && !splash.classList.contains('show'),
+             'splash .show removed after /api/me 200');
       assert(tiles.length === 11, '11 dashboard tiles rendered (got ' + tiles.length + ')');
       assert(kpis.length === 4, '4 KPI cells rendered (got ' + kpis.length + ')');
-      assert(headerId === 'TEST_AGENT', 'header shows seeded agent ID (got "' + headerId + '")');
+      assert(headerId === 'TEST_AGENT',
+             'header shows authenticated agent username (got "' + headerId + '")');
     }
 
     // ── 3. Tile routing for each real subview ──────────────────────────────
@@ -61,7 +80,7 @@ module.exports = {
       { slug: 'ip',      crumb: 'IP Checker',   table: '.ag-ipcheck-table' },
     ];
     for (const sv of subviewChecks) {
-      const { doc } = await harness.createAgentWindow({ bs_agent: 'T' });
+      const { doc } = await harness.createAgentWindow({ authedAs: 'T' });
       const tile = doc.querySelector('.ag-tile[data-tile="' + sv.slug + '"]');
       assert(!!tile, sv.slug + ' tile present in dashboard');
       if (tile) {
@@ -80,7 +99,7 @@ module.exports = {
     // ── 4. Customer Detail navigation ──────────────────────────────────────
     console.log('\n--- 4. Customer Detail nav (Management → row → tab switch) ---');
     {
-      const { doc } = await harness.createAgentWindow({ bs_agent: 'T' });
+      const { doc } = await harness.createAgentWindow({ authedAs: 'T' });
       const mgmtTile = doc.querySelector('.ag-tile[data-tile="mgmt"]');
       assert(!!mgmtTile, 'Management tile present');
       mgmtTile.click();
@@ -109,7 +128,7 @@ module.exports = {
     // ── 5. Mailbox interactions ────────────────────────────────────────────
     console.log('\n--- 5. Mailbox (chat send + email submit) ---');
     {
-      const { doc, window } = await harness.createAgentWindow({ bs_agent: 'T' });
+      const { doc, window } = await harness.createAgentWindow({ authedAs: 'T' });
       const mailTile = doc.querySelector('.ag-tile[data-tile="mail"]');
       assert(!!mailTile, 'Mailbox tile present');
       mailTile.click();
@@ -171,6 +190,39 @@ module.exports = {
           const formAgain = doc.getElementById('ag-mb-email-form');
           assert(!!formAgain, 'email form back after Send another reset');
         }
+      }
+    }
+
+    // ── 6. Login form submit → dashboard (new for D.6) ─────────────────────
+    console.log('\n--- 6. Login form submit → dashboard ---');
+    {
+      const { doc, window } = await harness.createAgentWindow({
+        authedAs: null,
+        loginStatus: 200,
+      });
+      const splashBefore = doc.getElementById('login-splash');
+      assert(splashBefore && splashBefore.classList.contains('show'),
+             'splash visible before submit');
+      const idIn = doc.getElementById('login-id');
+      const pwIn = doc.getElementById('login-pw');
+      assert(!!idIn && !!pwIn, 'login fields present');
+      if (idIn && pwIn) {
+        idIn.value = 'NEWAGENT';
+        pwIn.value = 'pass1234';
+        // Call the global handler directly — onsubmit dispatch in jsdom can
+        // skip async resolution. submitAgentLogin awaits two fetches (login
+        // + me) under our stub, both microtasks.
+        await window.submitAgentLogin({ preventDefault: () => {} });
+        await harness.tick();
+        const splashAfter = doc.getElementById('login-splash');
+        assert(splashAfter && !splashAfter.classList.contains('show'),
+               'splash hidden after successful login');
+        const tilesAfter = doc.querySelectorAll('.ag-tile');
+        assert(tilesAfter.length === 11,
+               'dashboard rendered after login (got ' + tilesAfter.length + ' tiles)');
+        const headerAfter = doc.querySelector('.ag-id')?.textContent;
+        assert(headerAfter === 'NEWAGENT',
+               'header chip shows posted username (got "' + headerAfter + '")');
       }
     }
 

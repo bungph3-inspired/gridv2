@@ -17,19 +17,21 @@
 
 <div id="agent-app" class="flex flex-col h-full">
 
-  <!-- LOGIN SPLASH — shown until localStorage 'bs_agent' is set.
-       Fake auth: any non-empty Login ID works. -->
+  <!-- LOGIN SPLASH — shown by default. agent-main.js probes /api/me on boot;
+       on 200 it removes the .show class; on 401 the splash stays visible.
+       Real auth as of 2026-05-24 (runbook 08 Phase D.1 + D.2).
+       Form posts via JS — submitAgentLogin handles the fetch + error UI. -->
   <div class="login-splash show" id="login-splash">
     <div class="login-card">
-      <div class="login-brand">Bet<span>Sim</span></div>
+      <div class="login-brand">Grid<span>V2</span></div>
       <div class="login-sub">Agent / Partner Portal</div>
       <form class="login-form" id="login-form" onsubmit="return submitAgentLogin(event)">
-        <label for="login-id">Login ID</label>
-        <input type="text" id="login-id" autocomplete="username" placeholder="e.g. NUBI004" required>
+        <label for="login-id">Username</label>
+        <input type="text" id="login-id" autocomplete="username" required>
         <label for="login-pw">Password</label>
-        <input type="password" id="login-pw" autocomplete="current-password" placeholder="any value works">
+        <input type="password" id="login-pw" autocomplete="current-password" required>
+        <div class="login-error" id="login-error" aria-live="polite"></div>
         <button type="submit" class="login-btn">Sign In</button>
-        <div class="login-note">Demo only · any credentials are accepted</div>
       </form>
       <div class="login-footer">
         Are you a player? <a href="/index.html">Sign in here</a>
@@ -40,12 +42,13 @@
   <!-- DISCLAIMER -->
   <div class="disc"><b>⚠ ENTERTAINMENT ONLY</b> — Virtual currency only. No real money involved. Not affiliated with any gambling operation.</div>
 
-  <!-- AGENT VIEW container — populated by src/agent.js after login -->
+  <!-- AGENT VIEW container — populated by src/agent.js after auth succeeds -->
   <div class="agent-view" id="agent-view"></div>
 
 </div>
 
-<!-- Mock data fixture, loaded before main script so agent.js can read window.AGENT_MOCK -->
+<!-- Mock data fixture, loaded before main script so agent.js can read window.AGENT_MOCK.
+     Will be displaced by real /api data over Phases D.3 + later. -->
 <script src="/agent_mock.js" onerror="window.__noAgentMock=true"></script>
 
 <!-- Agent entry -->
