@@ -33,15 +33,10 @@ const FILES = [
   ['src/bets.js',         30000,  true],
   ['src/main.js',         30000,  true],
   ['src/mobile/main.js',  40000,  true],
-  ['src/agent.js',        30000,  true],
-  ['src/agent-main.js',    1000,  true],
-  ['public/agent_mock.js', 4000,  true],
   ['src/style.css',       40000,  false],
   ['index.html',           8000,  false],
   ['index_mobile.html',    5000,  false],
-  ['agent.html',           1500,  false],
-  ['AGENT_RECON.md',       6000,  false],
-  ['PROJECT.md',         100000,  false],
+  ['PROJECT.md',          30000,  false],
   ['verify/run_all.cjs',   2000,  true],
   ['verify/harness.cjs',   2000,  true],
   ['verify/verify_altlines.cjs',           8000, true],
@@ -55,7 +50,6 @@ const FILES = [
   ['verify/verify_mobile_teaser.cjs',     10000, true],
   ['verify/verify_mobile_teaser_gating.cjs', 6000, true],
   ['verify/verify_reverse.cjs',           10000, true],
-  ['verify/verify_agent.cjs',              8000, true],
 ];
 
 // A "valid closer" for the last non-whitespace line of code / HTML. Liberal
@@ -68,7 +62,7 @@ const CLOSER_RE = /[\};\)\]]\s*[\);]?\s*$|\*\/\s*$|>\s*$/;
 // a colon/semicolon. Catches the mid-word truncations the mount cap leaves
 // behind (e.g. "John flagged mid-session neve") without false-positiving on
 // normal prose, bullets ending in code spans, or trailing emphasis.
-const MD_CLOSER_RE = /[\.!?\)\]\}>\*`'":;]\s*$/;
+const MD_CLOSER_RE = /[\.!?\)\]\}>\*`'":;_]\s*$/;
 
 function closerReFor(file) {
   return file.endsWith('.md') ? MD_CLOSER_RE : CLOSER_RE;

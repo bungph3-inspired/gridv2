@@ -1,4 +1,48 @@
 (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __esm = (fn, res) => function __init() {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  };
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+
+  // src/agent-api.js
+  var agent_api_exports = {};
+  __export(agent_api_exports, {
+    apiBase: () => apiBase,
+    apiFetch: () => apiFetch,
+    getMe: () => getMe,
+    setMe: () => setMe
+  });
+  function getMe() {
+    return _me;
+  }
+  function setMe(v) {
+    _me = v;
+  }
+  function apiBase() {
+    return location.hostname === "app.azuresb.com" ? "https://api.azuresb.com" : "";
+  }
+  async function apiFetch(path, opts = {}) {
+    return fetch(apiBase() + path, {
+      ...opts,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...opts.headers || {}
+      }
+    });
+  }
+  var _me;
+  var init_agent_api = __esm({
+    "src/agent-api.js"() {
+      _me = null;
+    }
+  });
+
   // src/utils.js
   var fmtUSD = (n) => "$" + Math.abs(n).toLocaleString("en-US", {
     minimumFractionDigits: 2,
@@ -11,6 +55,7 @@
   };
 
   // src/agent.js
+  init_agent_api();
   var agentState = {
     active: false,
     subview: "dashboard",
@@ -61,6 +106,7 @@
     if (agentState.subview === "position") return renderPosition(root);
     if (agentState.subview === "ipcheck") return renderIpcheck(root);
     if (agentState.subview === "mailbox") return renderMailbox(root);
+    if (agentState.subview === "subagents") return renderSubagents(root);
     if (agentState.subview === "placeholder") return renderPlaceholder(root);
     return renderDashboard(root);
   }
@@ -87,7 +133,7 @@
             ${tile("weekly", "\u{1F4CA}", "Weekly Figures", "tile-blue")}
             ${tile("pending", "\u{1F3AB}", "Pending", "tile-purple")}
             ${tile("cashier", "\u21C4$", "Cashier", "tile-amber")}
-            ${tile("add", "\u{1F464}+", "Add New", "tile-red")}
+            ${tile("subagents", "\u{1F465}", "Subagents", "tile-red")}
             ${tile("mgmt", "\u26DB", "Management", "tile-green")}
             ${tile("mass", "\u270E\u2261", "Mass Edit", "tile-teal")}
             ${tile("position", "\u2696", "Position", "tile-navy")}
@@ -167,6 +213,8 @@
           agentState.subview = "ipcheck";
         } else if (slug === "mail") {
           agentState.subview = "mailbox";
+        } else if (slug === "subagents") {
+          agentState.subview = "subagents";
         } else {
           agentState.subview = "placeholder";
           agentState.placeholderLabel = btn.querySelector(".ag-tile-label").textContent;
@@ -1309,6 +1357,237 @@
     </div>
   `;
   }
+  var _subagentsState = {
+    scope: "children",
+    // 'children' | 'downline'
+    rows: [],
+    loading: true,
+    error: null
+  };
+  async function renderSubagents(root) {
+    const m = window.AGENT_MOCK;
+    const me = getMe();
+    root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, "Subagents")}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">\u2190 Back</button>
+        <div class="ag-crumb-sub">Admin &gt; <b>Subagents</b></div>
+        <div class="ag-subhdr-actions">
+          ${me && me.has_children ? `<button class="ag-action ag-sa-scope-toggle">${_subagentsState.scope === "downline" ? "View direct children" : "View full downline"}</button>` : ""}
+        </div>
+      </div>
+      <div class="ag-sa-create">
+        <div class="ag-sa-create-title">Create subagent</div>
+        <form class="ag-sa-create-form" id="ag-sa-create-form">
+          <input type="text" id="ag-sa-username" placeholder="Username (3\u201332 chars)" autocomplete="off" required>
+          <input type="password" id="ag-sa-password" placeholder="Password (min 3 chars)" autocomplete="new-password" required>
+          <button type="submit" class="ag-sa-create-btn">Create</button>
+        </form>
+        <div class="ag-sa-form-error" id="ag-sa-form-error" aria-live="polite"></div>
+      </div>
+      <div class="ag-sa-table-wrap" id="ag-sa-table-wrap">
+        <div class="ag-sa-loading">Loading subagents\u2026</div>
+      </div>
+    </div>
+  `;
+    wireBack();
+    wireSubagentsCreate();
+    wireScopeToggle();
+    await fetchAndRenderSubagents();
+  }
+  async function fetchAndRenderSubagents() {
+    _subagentsState.loading = true;
+    _subagentsState.error = null;
+    try {
+      const r = await apiFetch(`/api/agents?scope=${_subagentsState.scope}`);
+      if (r.status === 401) {
+        location.reload();
+        return;
+      }
+      if (!r.ok) {
+        _subagentsState.error = `Could not load subagents (HTTP ${r.status})`;
+      } else {
+        const json = await r.json();
+        _subagentsState.rows = json.agents || [];
+      }
+    } catch (e) {
+      _subagentsState.error = "Could not reach the server.";
+    } finally {
+      _subagentsState.loading = false;
+    }
+    renderSubagentsTable();
+  }
+  function renderSubagentsTable() {
+    const wrap = document.getElementById("ag-sa-table-wrap");
+    if (!wrap) return;
+    if (_subagentsState.error) {
+      wrap.innerHTML = `<div class="ag-sa-err">${escapeHtml(_subagentsState.error)}</div>`;
+      return;
+    }
+    if (_subagentsState.rows.length === 0) {
+      wrap.innerHTML = `
+      <div class="ag-sa-empty">
+        <div class="ag-sa-empty-title">No subagents yet</div>
+        <div class="ag-sa-empty-msg">Use the form above to create your first one.</div>
+      </div>
+    `;
+      return;
+    }
+    wrap.innerHTML = `
+    <table class="ag-table ag-sa-table">
+      <thead><tr>
+        <th>Username</th>
+        <th>Children</th>
+        <th>Status</th>
+        <th>Last login</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody>${_subagentsState.rows.map(subagentRow).join("")}</tbody>
+    </table>
+  `;
+    wireSubagentsRowActions();
+  }
+  function subagentRow(r) {
+    const status = r.disabled_at ? '<span class="ag-neg">Disabled</span>' : r.locked_at ? '<span class="ag-neg">Locked</span>' : '<span class="ag-pos">Active</span>';
+    const lastLoginRaw = r.last_login_at || "";
+    const lastLogin = lastLoginRaw ? lastLoginRaw.replace("T", " ").split(".")[0] : "\u2014";
+    const indent = r.depth && r.depth > 1 ? '<span class="ag-sa-indent">' + "&nbsp;&nbsp;".repeat(r.depth - 1) + "\u21B3 </span>" : "";
+    return `
+    <tr data-id="${r.id}" data-username="${escapeHtml(r.username)}">
+      <td>${indent}${escapeHtml(r.username)}</td>
+      <td>${r.has_children ? "Yes" : "\u2014"}</td>
+      <td>${status}</td>
+      <td class="ag-sa-when">${escapeHtml(lastLogin)}</td>
+      <td class="ag-sa-actions">
+        <button class="ag-sa-act" data-act="reset">Reset PW</button>
+        ${r.disabled_at ? '<button class="ag-sa-act" data-act="enable">Enable</button>' : '<button class="ag-sa-act" data-act="disable">Disable</button>'}
+        ${r.locked_at ? '<button class="ag-sa-act" data-act="unlock">Unlock</button>' : ""}
+      </td>
+    </tr>
+  `;
+  }
+  function wireSubagentsCreate() {
+    const form = document.getElementById("ag-sa-create-form");
+    if (!form) return;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("ag-sa-form-error");
+      if (errEl) errEl.textContent = "";
+      const username = (document.getElementById("ag-sa-username").value || "").trim();
+      const password = document.getElementById("ag-sa-password").value || "";
+      if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) {
+        if (errEl) errEl.textContent = "Username must be 3\u201332 letters, digits, or underscores.";
+        return;
+      }
+      if (password.length < 3) {
+        if (errEl) errEl.textContent = "Password must be at least 3 characters.";
+        return;
+      }
+      const btn = form.querySelector(".ag-sa-create-btn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Creating\u2026";
+      }
+      try {
+        const r = await apiFetch("/api/agents", {
+          method: "POST",
+          body: JSON.stringify({ username, password })
+        });
+        if (r.status === 201) {
+          form.reset();
+          const meR = await apiFetch("/api/me");
+          if (meR.ok) {
+            const { setMe: setMe2 } = await Promise.resolve().then(() => (init_agent_api(), agent_api_exports));
+            setMe2(await meR.json());
+            await renderSubagents(document.getElementById("agent-view"));
+          } else {
+            await fetchAndRenderSubagents();
+          }
+        } else if (r.status === 409) {
+          if (errEl) errEl.textContent = "That username is already taken.";
+        } else if (r.status === 401) {
+          location.reload();
+        } else if (r.status === 400) {
+          if (errEl) errEl.textContent = "Invalid username or password format.";
+        } else {
+          if (errEl) errEl.textContent = `Create failed (HTTP ${r.status}).`;
+        }
+      } catch (e2) {
+        if (errEl) errEl.textContent = "Could not reach the server.";
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Create";
+        }
+      }
+    });
+  }
+  function wireSubagentsRowActions() {
+    document.querySelectorAll(".ag-sa-act").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = btn.closest("tr");
+        if (!row) return;
+        const id = row.dataset.id;
+        const username = row.dataset.username;
+        const act = btn.dataset.act;
+        if (act === "reset") {
+          const newPw = prompt(`Reset password for ${username}? Enter a new password (min 3 chars):`);
+          if (newPw === null) return;
+          if (newPw.length < 3) {
+            alert("Password must be at least 3 characters.");
+            return;
+          }
+          await mutateSubagent(`/api/agents/${id}/password`, { new_password: newPw });
+        } else if (act === "disable") {
+          if (!confirm(`Disable ${username}? They will be logged out immediately.`)) return;
+          await mutateSubagent(`/api/agents/${id}/disable`);
+        } else if (act === "enable") {
+          if (!confirm(`Enable ${username}?`)) return;
+          await mutateSubagent(`/api/agents/${id}/enable`);
+        } else if (act === "unlock") {
+          if (!confirm(`Unlock ${username}? Failed-login counter resets to 0.`)) return;
+          await mutateSubagent(`/api/agents/${id}/unlock`);
+        }
+      });
+    });
+  }
+  async function mutateSubagent(path, body) {
+    try {
+      const r = await apiFetch(path, {
+        method: "PATCH",
+        body: body ? JSON.stringify(body) : void 0
+      });
+      if (r.status === 204) {
+        await fetchAndRenderSubagents();
+        return;
+      }
+      if (r.status === 401) {
+        location.reload();
+        return;
+      }
+      if (r.status === 404) {
+        alert("Subagent not found (may have been deleted).");
+        await fetchAndRenderSubagents();
+        return;
+      }
+      if (r.status === 400) {
+        alert("Invalid request \u2014 check the input.");
+        return;
+      }
+      alert(`Action failed (HTTP ${r.status}).`);
+    } catch (e) {
+      alert("Could not reach the server.");
+    }
+  }
+  function wireScopeToggle() {
+    const btn = document.querySelector(".ag-sa-scope-toggle");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      _subagentsState.scope = _subagentsState.scope === "downline" ? "children" : "downline";
+      await renderSubagents(document.getElementById("agent-view"));
+    });
+  }
   function renderPlaceholder(root) {
     const m = window.AGENT_MOCK;
     root.innerHTML = `
@@ -1348,33 +1627,96 @@
   }
 
   // src/agent-main.js
-  function boot() {
-    const agentId = localStorage.getItem("bs_agent");
-    if (!agentId) {
-      return;
+  init_agent_api();
+  async function boot() {
+    try {
+      const r = await apiFetch("/api/me");
+      if (r.ok) {
+        setMe(await r.json());
+        startDashboard();
+        return;
+      }
+    } catch (e) {
+      const errEl = document.getElementById("login-error");
+      if (errEl) errEl.textContent = "Could not reach the server. Check your connection and try again.";
     }
-    hideSplash();
-    if (window.AGENT_MOCK) window.AGENT_MOCK.id = agentId;
-    initAgent();
   }
-  function submitAgentLogin(e) {
+  async function submitAgentLogin(e) {
     e.preventDefault();
-    const id = (document.getElementById("login-id").value || "").trim();
-    if (!id) return false;
-    localStorage.setItem("bs_agent", id);
-    hideSplash();
-    if (window.AGENT_MOCK) window.AGENT_MOCK.id = id;
-    initAgent();
+    const errEl = document.getElementById("login-error");
+    if (errEl) errEl.textContent = "";
+    const username = (document.getElementById("login-id").value || "").trim();
+    const password = document.getElementById("login-pw").value || "";
+    if (!username || !password) {
+      if (errEl) errEl.textContent = "Enter a username and password.";
+      return false;
+    }
+    const btn = document.querySelector("#login-form .login-btn");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Signing in\u2026";
+    }
+    let r;
+    try {
+      r = await apiFetch("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password })
+      });
+    } catch (netErr) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Sign In";
+      }
+      if (errEl) errEl.textContent = "Could not reach the server. Try again.";
+      return false;
+    }
+    if (r.status === 200) {
+      const meR = await apiFetch("/api/me");
+      if (!meR.ok) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Sign In";
+        }
+        if (errEl) errEl.textContent = "Signed in but could not load your profile. Try again.";
+        return false;
+      }
+      setMe(await meR.json());
+      startDashboard();
+      return false;
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Sign In";
+    }
+    if (!errEl) return false;
+    if (r.status === 401) {
+      errEl.textContent = "Incorrect username or password.";
+    } else if (r.status === 423) {
+      errEl.textContent = "Account locked. Contact your agent to unlock.";
+    } else if (r.status === 400) {
+      errEl.textContent = "Username must be 3\u201332 letters, digits, or underscores. Password must be at least 3 characters.";
+    } else {
+      errEl.textContent = `Sign-in failed (HTTP ${r.status}). Try again.`;
+    }
     return false;
   }
-  function logoutAgent() {
+  async function logoutAgent() {
     if (!confirm("Sign out of the agent portal?")) return;
-    localStorage.removeItem("bs_agent");
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {
+    }
+    setMe(null);
     location.reload();
   }
-  function hideSplash() {
-    const sp = document.getElementById("login-splash");
-    if (sp) sp.classList.remove("show");
+  function startDashboard() {
+    const splash = document.getElementById("login-splash");
+    if (splash) splash.classList.remove("show");
+    const me = getMe();
+    if (window.AGENT_MOCK && me) {
+      window.AGENT_MOCK.id = me.username;
+    }
+    initAgent();
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);

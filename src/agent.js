@@ -20,6 +20,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { escapeHtml, fmtUSD } from './utils.js';
+import { getMe, apiFetch } from './agent-api.js';
 
 const agentState = {
   active: false,
@@ -102,6 +103,7 @@ function render(){
   if (agentState.subview === 'position') return renderPosition(root);
   if (agentState.subview === 'ipcheck') return renderIpcheck(root);
   if (agentState.subview === 'mailbox') return renderMailbox(root);
+  if (agentState.subview === 'subagents') return renderSubagents(root);
   if (agentState.subview === 'placeholder') return renderPlaceholder(root);
   return renderDashboard(root);
 }
@@ -131,7 +133,7 @@ function renderDashboard(root){
             ${tile('weekly',  '📊', 'Weekly Figures',  'tile-blue')}
             ${tile('pending', '🎫', 'Pending',         'tile-purple')}
             ${tile('cashier', '⇄$', 'Cashier',         'tile-amber')}
-            ${tile('add',     '👤+', 'Add New',        'tile-red')}
+            ${tile('subagents','👥', 'Subagents',      'tile-red')}
             ${tile('mgmt',    '⛛',  'Management',     'tile-green')}
             ${tile('mass',    '✎≡', 'Mass Edit',       'tile-teal')}
             ${tile('position','⚖',  'Position',        'tile-navy')}
@@ -222,6 +224,8 @@ function wireTiles(){
         agentState.subview = 'ipcheck';
       } else if (slug === 'mail') {
         agentState.subview = 'mailbox';
+      } else if (slug === 'subagents') {
+        agentState.subview = 'subagents';
       } else {
         agentState.subview = 'placeholder';
         agentState.placeholderLabel = btn.querySelector('.ag-tile-label').textContent;
@@ -1552,6 +1556,246 @@ function renderTabStub(tabDef){
 }
 
 // ─── PLACEHOLDER (tile-level stubs) ─────────────────────────────────────────
+
+// ─── SUBAGENTS (admin panel) ────────────────────────────────────────────────
+// Real-data subview backed by /api/agents — bypasses window.AGENT_MOCK.
+// Always visible regardless of has_children, so fresh agents (incl. a
+// just-seeded MASTER) can create their first downline member. This diverges
+// intentionally from AUTH_DESIGN §9.2's "iff has_children=true" gate — that
+// gate would catch-22 the first-child-ever case. The "view full downline"
+// toggle in the header IS still gated on has_children since there's nothing
+// to view downline if you have no children.
+
+let _subagentsState = {
+  scope: 'children',   // 'children' | 'downline'
+  rows: [],
+  loading: true,
+  error: null,
+};
+
+async function renderSubagents(root){
+  const m = window.AGENT_MOCK;
+  const me = getMe();
+  root.innerHTML = `
+    <div class="ag-shell">
+      ${agentHeaderBar(m, 'Subagents')}
+      <div class="ag-subhdr">
+        <button class="ag-back" data-back="dashboard">← Back</button>
+        <div class="ag-crumb-sub">Admin &gt; <b>Subagents</b></div>
+        <div class="ag-subhdr-actions">
+          ${me && me.has_children
+            ? `<button class="ag-action ag-sa-scope-toggle">${_subagentsState.scope === 'downline' ? 'View direct children' : 'View full downline'}</button>`
+            : ''}
+        </div>
+      </div>
+      <div class="ag-sa-create">
+        <div class="ag-sa-create-title">Create subagent</div>
+        <form class="ag-sa-create-form" id="ag-sa-create-form">
+          <input type="text" id="ag-sa-username" placeholder="Username (3–32 chars)" autocomplete="off" required>
+          <input type="password" id="ag-sa-password" placeholder="Password (min 3 chars)" autocomplete="new-password" required>
+          <button type="submit" class="ag-sa-create-btn">Create</button>
+        </form>
+        <div class="ag-sa-form-error" id="ag-sa-form-error" aria-live="polite"></div>
+      </div>
+      <div class="ag-sa-table-wrap" id="ag-sa-table-wrap">
+        <div class="ag-sa-loading">Loading subagents…</div>
+      </div>
+    </div>
+  `;
+  wireBack();
+  wireSubagentsCreate();
+  wireScopeToggle();
+  await fetchAndRenderSubagents();
+}
+
+async function fetchAndRenderSubagents(){
+  _subagentsState.loading = true;
+  _subagentsState.error = null;
+  try {
+    const r = await apiFetch(`/api/agents?scope=${_subagentsState.scope}`);
+    if (r.status === 401) { location.reload(); return; }
+    if (!r.ok) {
+      _subagentsState.error = `Could not load subagents (HTTP ${r.status})`;
+    } else {
+      const json = await r.json();
+      _subagentsState.rows = json.agents || [];
+    }
+  } catch (e) {
+    _subagentsState.error = 'Could not reach the server.';
+  } finally {
+    _subagentsState.loading = false;
+  }
+  renderSubagentsTable();
+}
+
+function renderSubagentsTable(){
+  const wrap = document.getElementById('ag-sa-table-wrap');
+  if (!wrap) return;
+  if (_subagentsState.error) {
+    wrap.innerHTML = `<div class="ag-sa-err">${escapeHtml(_subagentsState.error)}</div>`;
+    return;
+  }
+  if (_subagentsState.rows.length === 0) {
+    wrap.innerHTML = `
+      <div class="ag-sa-empty">
+        <div class="ag-sa-empty-title">No subagents yet</div>
+        <div class="ag-sa-empty-msg">Use the form above to create your first one.</div>
+      </div>
+    `;
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="ag-table ag-sa-table">
+      <thead><tr>
+        <th>Username</th>
+        <th>Children</th>
+        <th>Status</th>
+        <th>Last login</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody>${_subagentsState.rows.map(subagentRow).join('')}</tbody>
+    </table>
+  `;
+  wireSubagentsRowActions();
+}
+
+function subagentRow(r){
+  const status = r.disabled_at ? '<span class="ag-neg">Disabled</span>'
+               : r.locked_at   ? '<span class="ag-neg">Locked</span>'
+               :                  '<span class="ag-pos">Active</span>';
+  // Postgres dates come back like "2026-05-24 14:51:52.884-07" — slice off the
+  // sub-second + tz for display. ISO ("...T...Z") also slices cleanly at 'T'.
+  const lastLoginRaw = r.last_login_at || '';
+  const lastLogin = lastLoginRaw
+    ? lastLoginRaw.replace('T', ' ').split('.')[0]
+    : '—';
+  const indent = (r.depth && r.depth > 1)
+    ? '<span class="ag-sa-indent">' + '&nbsp;&nbsp;'.repeat(r.depth - 1) + '↳ </span>'
+    : '';
+  return `
+    <tr data-id="${r.id}" data-username="${escapeHtml(r.username)}">
+      <td>${indent}${escapeHtml(r.username)}</td>
+      <td>${r.has_children ? 'Yes' : '—'}</td>
+      <td>${status}</td>
+      <td class="ag-sa-when">${escapeHtml(lastLogin)}</td>
+      <td class="ag-sa-actions">
+        <button class="ag-sa-act" data-act="reset">Reset PW</button>
+        ${r.disabled_at
+          ? '<button class="ag-sa-act" data-act="enable">Enable</button>'
+          : '<button class="ag-sa-act" data-act="disable">Disable</button>'}
+        ${r.locked_at ? '<button class="ag-sa-act" data-act="unlock">Unlock</button>' : ''}
+      </td>
+    </tr>
+  `;
+}
+
+function wireSubagentsCreate(){
+  const form = document.getElementById('ag-sa-create-form');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('ag-sa-form-error');
+    if (errEl) errEl.textContent = '';
+    const username = (document.getElementById('ag-sa-username').value || '').trim();
+    const password = document.getElementById('ag-sa-password').value || '';
+    // Client-side validation matches API regex (AUTH_DESIGN §10 rows 1+2) so
+    // the user gets specific feedback per-field instead of the generic 400.
+    if (!/^[A-Za-z0-9_]{3,32}$/.test(username)) {
+      if (errEl) errEl.textContent = 'Username must be 3–32 letters, digits, or underscores.';
+      return;
+    }
+    if (password.length < 3) {
+      if (errEl) errEl.textContent = 'Password must be at least 3 characters.';
+      return;
+    }
+    const btn = form.querySelector('.ag-sa-create-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+    try {
+      const r = await apiFetch('/api/agents', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+      if (r.status === 201) {
+        form.reset();
+        // has_children on the actor may have just flipped from false → true.
+        // Refresh /api/me cache so the downline-toggle button appears on re-render.
+        const meR = await apiFetch('/api/me');
+        if (meR.ok) {
+          const { setMe } = await import('./agent-api.js');
+          setMe(await meR.json());
+          // Full re-render of subview so the toggle button appears in header.
+          await renderSubagents(document.getElementById('agent-view'));
+        } else {
+          await fetchAndRenderSubagents();
+        }
+      } else if (r.status === 409) {
+        if (errEl) errEl.textContent = 'That username is already taken.';
+      } else if (r.status === 401) {
+        location.reload();
+      } else if (r.status === 400) {
+        if (errEl) errEl.textContent = 'Invalid username or password format.';
+      } else {
+        if (errEl) errEl.textContent = `Create failed (HTTP ${r.status}).`;
+      }
+    } catch (e) {
+      if (errEl) errEl.textContent = 'Could not reach the server.';
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Create'; }
+    }
+  });
+}
+
+function wireSubagentsRowActions(){
+  document.querySelectorAll('.ag-sa-act').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('tr');
+      if (!row) return;
+      const id = row.dataset.id;
+      const username = row.dataset.username;
+      const act = btn.dataset.act;
+      if (act === 'reset') {
+        const newPw = prompt(`Reset password for ${username}? Enter a new password (min 3 chars):`);
+        if (newPw === null) return;
+        if (newPw.length < 3) { alert('Password must be at least 3 characters.'); return; }
+        await mutateSubagent(`/api/agents/${id}/password`, { new_password: newPw });
+      } else if (act === 'disable') {
+        if (!confirm(`Disable ${username}? They will be logged out immediately.`)) return;
+        await mutateSubagent(`/api/agents/${id}/disable`);
+      } else if (act === 'enable') {
+        if (!confirm(`Enable ${username}?`)) return;
+        await mutateSubagent(`/api/agents/${id}/enable`);
+      } else if (act === 'unlock') {
+        if (!confirm(`Unlock ${username}? Failed-login counter resets to 0.`)) return;
+        await mutateSubagent(`/api/agents/${id}/unlock`);
+      }
+    });
+  });
+}
+
+async function mutateSubagent(path, body){
+  try {
+    const r = await apiFetch(path, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (r.status === 204) { await fetchAndRenderSubagents(); return; }
+    if (r.status === 401) { location.reload(); return; }
+    if (r.status === 404) { alert('Subagent not found (may have been deleted).'); await fetchAndRenderSubagents(); return; }
+    if (r.status === 400) { alert('Invalid request — check the input.'); return; }
+    alert(`Action failed (HTTP ${r.status}).`);
+  } catch (e) {
+    alert('Could not reach the server.');
+  }
+}
+
+function wireScopeToggle(){
+  const btn = document.querySelector('.ag-sa-scope-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    _subagentsState.scope = _subagentsState.scope === 'downline' ? 'children' : 'downline';
+    await renderSubagents(document.getElementById('agent-view'));
+  });
+}
 
 function renderPlaceholder(root){
   const m = window.AGENT_MOCK;

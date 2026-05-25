@@ -1,8 +1,8 @@
 // ════════════════════════════════════════════════════════════════════════════
 //  harness.cjs — single-process verify runner core
 //  ────────────────────────────────────────────────────────────────────────────
-//  Loads the bundled desktop + mobile builds once into memory, then exposes
-//  factory functions that each suite calls to get a fresh jsdom Window.
+//  Loads the bundled desktop + mobile + agent builds once into memory, then
+//  exposes factory functions that each suite calls to get a fresh jsdom Window.
 //  Compared to the old per-file process model, this saves:
 //    - ~0.5-1s of Node startup per suite × 10 suites = ~5-10s
 //    - ~1-2s of esbuild + fs.readFile re-work per suite × 10 = ~10-20s
@@ -115,17 +115,103 @@ async function createMobileWindow(seeds = { bs_mock: '1', bs_bets: '[]', bs_bal:
   );
 }
 
-// Agent portal factory. Loads agent.html with the agent_mock fixture + the
-// agent bundle. Default seeds with bs_agent='TEST_AGENT' so the login splash
-// is hidden by default and renderDashboard fires. Pass bs_agent: null to
-// test the splash gate itself.
-async function createAgentWindow(seeds = { bs_agent: 'TEST_AGENT' }, opts = {}) {
+// Build the inline script that installs a window.fetch stub for the agent
+// portal. Replaces the old localStorage.bs_agent gate (runbook 08 Phase D
+// cutover, 2026-05-24) — auth now lives in /api/me + cookies, so jsdom
+// needs to satisfy that boot probe synthetically.
+//
+// Routes handled:
+//   GET  /api/me      → 200 with `_me` if authedAs is non-null, else 401
+//   POST /api/login   → status from `loginStatus`; on 200, parses the
+//                       posted username and sets _me so the follow-up
+//                       /api/me from agent-main.js succeeds
+//   POST /api/logout  → 204 + clears _me
+//   anything else     → 404
+//
+// Exposed escape hatch: `window.__setMockMe(obj)` lets a test flip auth state
+// mid-suite without a full reload.
+function _buildAgentFetchStub(authedAs, loginStatus) {
+  const me = authedAs == null ? null : {
+    id: 1,
+    username: authedAs,
+    parent_id: null,
+    has_children: false,
+    disabled_at: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+  };
+  return `
+(function(){
+  var _me = ${JSON.stringify(me)};
+  var _loginStatus = ${JSON.stringify(loginStatus)};
+  function _resp(status, body) {
+    return {
+      ok: status >= 200 && status < 300,
+      status: status,
+      json: async function(){ return body; },
+      text: async function(){ return body == null ? '' : JSON.stringify(body); },
+    };
+  }
+  window.fetch = async function(url, opts) {
+    var u = String(url);
+    var method = (opts && opts.method) || 'GET';
+    if (u.indexOf('/api/me') !== -1) {
+      return _me ? _resp(200, _me) : _resp(401, { error: 'unauthenticated' });
+    }
+    if (u.indexOf('/api/login') !== -1 && method === 'POST') {
+      if (_loginStatus === 200) {
+        var bodyStr = (opts && opts.body) ? String(opts.body) : '{}';
+        var parsed = {};
+        try { parsed = JSON.parse(bodyStr); } catch(e) {}
+        _me = {
+          id: 1,
+          username: parsed.username || 'AGENT',
+          parent_id: null,
+          has_children: false,
+          disabled_at: null,
+          created_at: '2026-01-01T00:00:00.000Z',
+        };
+        return _resp(200, { ok: true });
+      }
+      if (_loginStatus === 401) return _resp(401, { error: 'invalid' });
+      if (_loginStatus === 423) return _resp(423, { error: 'locked' });
+      if (_loginStatus === 400) return _resp(400, { error: 'bad_request' });
+      return _resp(_loginStatus, { error: 'unknown' });
+    }
+    if (u.indexOf('/api/logout') !== -1 && method === 'POST') {
+      _me = null;
+      return _resp(204, null);
+    }
+    return _resp(404, { error: 'not_found' });
+  };
+  window.__setMockMe = function(v) { _me = v; };
+})();
+`;
+}
+
+// Agent portal factory. Installs a window.fetch stub for /api/{me,login,logout}
+// before the bundle runs, then loads agent.html + agent_mock fixture + agent
+// bundle. Opts:
+//   authedAs:    string | null  — username to return from /api/me (default
+//                'TEST_AGENT'). Pass null to test the splash gate.
+//   loginStatus: 200 | 400 | 401 | 423 — what /api/login should return.
+//                Default 200. Only matters for suites that exercise the form.
+//   waitMs:      override settle delay (default 80ms).
+async function createAgentWindow(opts = {}) {
+  const {
+    authedAs = 'TEST_AGENT',
+    loginStatus = 200,
+    waitMs,
+  } = opts;
   const c = setup();
+  const stub = _buildAgentFetchStub(authedAs, loginStatus);
+  // Stub script runs before agent_mock.js so window.fetch is in place
+  // before any module code touches it.
+  const prologue = stub + '\n' + c.agentMockJs;
   return _buildWindow(
     c.agentHtml,
     '<script src="/agent_mock.js" onerror="window.__noAgentMock=true"></script>',
     '<script type="module" src="/src/agent-main.js"></script>',
-    c.agentBundle, seeds, c.agentMockJs, opts.waitMs
+    c.agentBundle, {}, prologue, waitMs
   );
 }
 

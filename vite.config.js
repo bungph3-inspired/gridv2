@@ -11,11 +11,18 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [tailwindcss()],
-  // Multi-page: index.html (desktop) + index_mobile.html (mobile). Each has
-  // its own entry script — desktop loads src/main.js, mobile loads src/mobile/main.js.
+  // Multi-page: index.html (desktop) + index_mobile.html (mobile) + agent.html.
   server: {
     port: 5173,
     open: true,
+    // Dev-only proxy so the frontend can call /api/* same-origin and the
+    // session cookie (Secure + SameSite=Lax) is delivered cleanly. The API
+    // listens on localhost:3000 (Hono via @hono/node-server). In prod the
+    // frontend uses an absolute https://api.azuresb.com URL — see
+    // src/agent-main.js apiBase().
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
   },
   build: {
     outDir: 'dist',
