@@ -15,6 +15,13 @@
       "when": 1779836796542,
       "tag": "0001_broken_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779838611179,
+      "tag": "0002_phase_d_oddspapi",
+      "breakpoints": true
     }
   ]
 }
