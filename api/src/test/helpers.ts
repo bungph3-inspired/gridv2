@@ -1,11 +1,12 @@
 // Test harness — per-test transaction rollback + Hono request helper.
 //
 // Usage:
-//   import { txTest, request, extractSessionCookie } from "./helpers";
+//   import { txTest, request, extractSessionCookie, loginAs } from "./helpers";
 //
 //   txTest("login success", async () => {
 //     // seed/setup happens INSIDE the transaction
-//     const res = await request("POST", "/api/login", { body: { ... } });
+//     const cookie = await loginAs("Pisa", "password");
+//     const res = await request("GET", "/api/me", { cookie });
 //     expect(res.status).toBe(200);
 //   });
 //
@@ -72,4 +73,21 @@ export function extractSessionCookie(res: Response): string | null {
   if (!setCookie) return null;
   const match = setCookie.match(/gridv2_session=([^;]+)/);
   return match ? `gridv2_session=${match[1]}` : null;
+}
+
+// POSTs /api/login and returns the resulting `gridv2_session=<token>` cookie
+// string ready to pass as `cookie:` on follow-up requests. Throws if the login
+// didn't succeed — callers expecting failure should use `request()` directly.
+export async function loginAs(username: string, password: string): Promise<string> {
+  const res = await request("POST", "/api/login", {
+    body: { username, password },
+  });
+  if (res.status !== 200) {
+    throw new Error(`loginAs(${username}): expected 200, got ${res.status}`);
+  }
+  const cookie = extractSessionCookie(res);
+  if (!cookie) {
+    throw new Error(`loginAs(${username}): no session cookie in response`);
+  }
+  return cookie;
 }
