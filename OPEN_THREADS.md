@@ -171,8 +171,7 @@ Reconstruction completed end-to-end via session-transcript forensics:
 2. **Branch-protection ruleset audit** — pre-fleet-go-live
 3. **CI `api/` job** — typecheck + Postgres-backed smoke
 4. **App stdout → journald fix** — add `StandardOutput=journal` + `StandardError=journal` to `gridv2.service` (or confirm Node is writing to stdout at all)
-5. **Lockout smoke** — try 5x wrong password against `smoketest1`, confirm `locked_at` flips at 5
-6. **Phase E test harness** — regression coverage
+5. **Phase E test harness** — regression coverage
 
 ## 2026-05-26 — MASTER password rotation + lockout counter verified
 
@@ -181,4 +180,13 @@ Reconstruction completed end-to-end via session-transcript forensics:
 - Login with new password against api.azuresb.com → 200. Login with old password → 401 (after a one-off transient 404 from Cloudflare — not reproduced on retry against either the public surface or localhost, no failed_logins increment for that one).
 - `failed_logins` counter behavior verified: increments by 1 per real auth failure that reaches the handler. Reset to 0 manually after smoke (Pisa was at 2/5).
 - Source-read of `api/src/routes/auth.ts` confirms the login handler returns only **400/401/423/200** — no 404 in the handler. The transient 404 was edge / proxy noise.
+
+
+## 2026-05-26 cont — Lockout smoke + unlock flow validated
+
+- 5x wrong-password attempts against `smoketest1` → all returned HTTP 401 `{"error":"unauthenticated"}`. `failed_logins` counter incremented 0→5 across the attempts, `locked_at` set to NOW() on attempt 5 (per `auth.ts` line 100: `nextCount >= 5 ? new Date() : null`).
+- Correct password against locked account → HTTP 423 `{"error":"locked"}`. The lockedAt check at `auth.ts:80` returns 423 **before** verifying the password, so attackers can't burn additional attempts after lockout.
+- Logged in as Pisa, `PATCH /api/agents/2/unlock` → HTTP 204. `requireDescendant()` middleware allowed Pisa to unlock smoketest1 (parent → child).
+- Post-unlock psql state: `failed_logins=0`, `locked_at=null` — both reset.
+- smoketest1 re-login with correct password → HTTP 200 `{ok:true}`. Full cycle validated end-to-end on `api.azuresb.com`.
 
