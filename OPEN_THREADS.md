@@ -161,7 +161,7 @@ Reconstruction completed end-to-end via session-transcript forensics:
 
 - API: `https://api.azuresb.com` (Cloudflare → Caddy → Node on `:3000`)
 - DB: Postgres `gridv2` on VPS localhost
-- MASTER: `Pisa / Pisa20260525test` (rotate before users land)
+- MASTER: `Pisa` — password rotated 2026-05-26 (stored in password manager; never logged in chat or session notes)
 - Children present: `smoketest1 (id=2)`, `smoketest2 (id=3)` — leave for now per 2026-05-25 cont 2 cleanup decision; delete during pre-launch sweep
 - Service unit: `/etc/systemd/system/gridv2.service` with `EnvironmentFile=/etc/gridv2/env` + `ExecStart=/usr/bin/node /home/gridv2/repo/api/dist/index.js`
 
@@ -172,5 +172,13 @@ Reconstruction completed end-to-end via session-transcript forensics:
 3. **CI `api/` job** — typecheck + Postgres-backed smoke
 4. **App stdout → journald fix** — add `StandardOutput=journal` + `StandardError=journal` to `gridv2.service` (or confirm Node is writing to stdout at all)
 5. **Lockout smoke** — try 5x wrong password against `smoketest1`, confirm `locked_at` flips at 5
-6. **MASTER password rotation** — pre-fleet, swap to a real secret-grade value
-7. **Phase E test harness** — regression coverage
+6. **Phase E test harness** — regression coverage
+
+## 2026-05-26 — MASTER password rotation + lockout counter verified
+
+- MASTER password rotated via the seedMaster reset path (set env var → restart → clear env var → restart). Service stayed active through both restarts.
+- New password stored in John's password manager; never logged.
+- Login with new password against api.azuresb.com → 200. Login with old password → 401 (after a one-off transient 404 from Cloudflare — not reproduced on retry against either the public surface or localhost, no failed_logins increment for that one).
+- `failed_logins` counter behavior verified: increments by 1 per real auth failure that reaches the handler. Reset to 0 manually after smoke (Pisa was at 2/5).
+- Source-read of `api/src/routes/auth.ts` confirms the login handler returns only **400/401/423/200** — no 404 in the handler. The transient 404 was edge / proxy noise.
+
