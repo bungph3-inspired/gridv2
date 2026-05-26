@@ -162,17 +162,15 @@ Reconstruction completed end-to-end via session-transcript forensics:
 - API: `https://api.azuresb.com` (Cloudflare → Caddy → Node on `:3000`)
 - DB: Postgres `gridv2` on VPS localhost
 - MASTER: `Pisa` — password rotated 2026-05-26 (stored in password manager; never logged in chat or session notes)
-- API logs: `/var/log/gridv2/api.log` (stdout) + `/var/log/gridv2/api.err.log` (stderr) — written via systemd `StandardOutput=append:` directives in `/etc/systemd/system/gridv2.service`. No logrotate config yet (see follow-up).
+- API logs: `/var/log/gridv2/api.log` (stdout) + `/var/log/gridv2/api.err.log` (stderr) — written via systemd `StandardOutput=append:` directives in `/etc/systemd/system/gridv2.service`. Logrotate active via `/etc/logrotate.d/gridv2` (weekly, 4 weeks retention, compress+delaycompress, copytruncate).
 - Children present: `smoketest1 (id=2)`, `smoketest2 (id=3)` — leave for now per 2026-05-25 cont 2 cleanup decision; delete during pre-launch sweep
 - Service unit: `/etc/systemd/system/gridv2.service` with `EnvironmentFile=/etc/gridv2/env` + `ExecStart=/usr/bin/node /home/gridv2/repo/api/dist/index.js`
 
 ## Next session candidates
 
-1. **CRLF→LF cleanup PR** — set `.gitattributes`, normalize repo, ship PROJECT.md / SESSION_LOG.md updates (currently blocked by line-ending noise)
-2. **Branch-protection ruleset audit** — pre-fleet-go-live
-3. **CI `api/` job** — typecheck + Postgres-backed smoke
-4. **Phase E test harness** — regression coverage
-5. **Logrotate config for `/var/log/gridv2/api{,.err}.log`** — files will grow unbounded otherwise. ~5-line config: weekly rotation, 4 weeks retention, postrotate `systemctl reload gridv2` (or skip — node will reopen on next restart anyway).
+1. **Phase E test harness** — regression coverage for the auth flow (login, `/api/me`, create-child, downline CTE, logout, lockout, unlock). Scope first: runner choice (vitest / node:test / playwright?), VPS-driven or CI-driven, db fixture strategy. Promoted to top now that CRLF, audit, CI api/ job, and logrotate all shipped.
+2. **agent-*.log cleanup policy** — `/var/log/gridv2/agent-YYYY-MM-DD.log` files self-rotate via date-stamped filenames but never get deleted. Add `find -mtime +30 -delete` cron or extend the logrotate stanza with daterotate/dateformat. Low urgency (~9 KB total today).
+3. **Optional protection hardening** — require PR reviews (when collaborators join), enable admin enforcement, signed commits. All deferred since solo dev.
 
 ## 2026-05-26 — MASTER password rotation + lockout counter verified
 
@@ -200,3 +198,24 @@ Investigating the "app stdout missing from journald" thread revealed `gridv2.ser
 
 **Follow-up filed:** logrotate config — files currently 4 KB each but no rotation in place; left untouched they'll grow indefinitely.
 
+## 2026-05-26 cont 3 — VPS-only pivot, branch protection audit, CI api/ job, logrotate installed
+
+**Big decision: local Cowork clone is now display-only for GridV2 git work.** Today's PR #14 wrap-up surfaced silent FUSE truncation on `git checkout` / `git reset --hard` — `OPEN_THREADS.md` came back 174/202 lines despite a clean `git status`. Same family as `[[feedback_cowork_edit_truncation]]` but bites git, not the Edit tool. New memories: `[[feedback_cowork_git_checkout_truncation]]` + `[[feedback_gridv2_vps_only_git]]`. Going forward: all GridV2 git ops happen on `/home/gridv2/repo` (VPS); local clone is read-only context. Pure repo-side work (branch protection, PR ops, file fetches) can use GitHub MCP. The Cowork sandbox can't SSH to the VPS — John runs VPS commands from PowerShell.
+
+**Branch-protection audit (VPS curl against GitHub API):**
+- Classic protection on `main` (no rulesets configured).
+- Required check: `build-and-test`, strict (up-to-date branch required before merge).
+- Force-push: blocked. Deletion: blocked. Conversation resolution: required before merge.
+- Required PR reviews: **none configured** — self-merge allowed (acceptable solo; flag when collaborators join).
+- Admin enforcement: off. Signed commits: not required. Linear history: not required.
+- PAT scope lesson: `Administration: Read` lets you audit, `Administration: Read and write` lets you PATCH. Fine-grained PATs split Read/Write per permission. Memory updated: `[[feedback_pat_workflow_scope]]`.
+
+**PR #15 (squash-merged as `cfd61e6`): CI `api/` job.** Adds `api (build)` as a parallel job to `.github/workflows/ci.yml`. Scoped npm cache key on `api/package-lock.json`. Existing `build-and-test` job unchanged in name (preserves the required-check binding). All three checks (`build-and-test`, `api (build)`, Cloudflare Pages) green on the merge-triggered run. PATCHed `required_status_checks` to include `api (build)` alongside `build-and-test`.
+
+**Logrotate installed** at `/etc/logrotate.d/gridv2`. Weekly rotation, 4 weeks retention, `compress` + `delaycompress`, `missingok` + `notifempty`, **`copytruncate`** (chosen over postrotate-restart because systemd's `StandardOutput=append:` holds the fd open for the service lifetime — `copytruncate` preserves the fd, no service blip). Force-rotate validated: `.1` files created with original sizes, originals truncated to 0, service still `active`.
+
+**Workflow tooling lessons:**
+- PowerShell here-strings piped through ssh hang forever if the SSH key has a passphrase — stdin is the pipe, so ssh can't read passphrase from the terminal. Fix: encode the script as base64 and pass as a single ssh command argument (no stdin pipe). ssh-agent would also work but needs Administrator to enable on Windows.
+- The `gridv2` user has no sudo. `ssh root@VPS` directly for any system admin work. New memory: `[[reference_gridv2_vps_ssh_users]]`.
+
+**Follow-up filed:** agent fleet logs at `/var/log/gridv2/agent-YYYY-MM-DD.log` self-rotate via date-stamped filenames but never get deleted. Add `find -mtime +30 -delete` cron or extend the logrotate stanza with daterotate/dateformat. Low urgency (~9 KB total).
