@@ -1,0 +1,19 @@
+# Repo line-ending policy
+# Text normalizes to LF in repo and on checkout; binaries untouched.
+* text=auto eol=lf
+
+# Explicit binary (defensive)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.xlsx  binary
+*.docx  binary
+*.pptx  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
