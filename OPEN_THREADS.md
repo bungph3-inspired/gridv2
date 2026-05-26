@@ -162,6 +162,7 @@ Reconstruction completed end-to-end via session-transcript forensics:
 - API: `https://api.azuresb.com` (Cloudflare → Caddy → Node on `:3000`)
 - DB: Postgres `gridv2` on VPS localhost
 - MASTER: `Pisa` — password rotated 2026-05-26 (stored in password manager; never logged in chat or session notes)
+- API logs: `/var/log/gridv2/api.log` (stdout) + `/var/log/gridv2/api.err.log` (stderr) — written via systemd `StandardOutput=append:` directives in `/etc/systemd/system/gridv2.service`. No logrotate config yet (see follow-up).
 - Children present: `smoketest1 (id=2)`, `smoketest2 (id=3)` — leave for now per 2026-05-25 cont 2 cleanup decision; delete during pre-launch sweep
 - Service unit: `/etc/systemd/system/gridv2.service` with `EnvironmentFile=/etc/gridv2/env` + `ExecStart=/usr/bin/node /home/gridv2/repo/api/dist/index.js`
 
@@ -170,8 +171,8 @@ Reconstruction completed end-to-end via session-transcript forensics:
 1. **CRLF→LF cleanup PR** — set `.gitattributes`, normalize repo, ship PROJECT.md / SESSION_LOG.md updates (currently blocked by line-ending noise)
 2. **Branch-protection ruleset audit** — pre-fleet-go-live
 3. **CI `api/` job** — typecheck + Postgres-backed smoke
-4. **App stdout → journald fix** — add `StandardOutput=journal` + `StandardError=journal` to `gridv2.service` (or confirm Node is writing to stdout at all)
-5. **Phase E test harness** — regression coverage
+4. **Phase E test harness** — regression coverage
+5. **Logrotate config for `/var/log/gridv2/api{,.err}.log`** — files will grow unbounded otherwise. ~5-line config: weekly rotation, 4 weeks retention, postrotate `systemctl reload gridv2` (or skip — node will reopen on next restart anyway).
 
 ## 2026-05-26 — MASTER password rotation + lockout counter verified
 
@@ -189,4 +190,13 @@ Reconstruction completed end-to-end via session-transcript forensics:
 - Logged in as Pisa, `PATCH /api/agents/2/unlock` → HTTP 204. `requireDescendant()` middleware allowed Pisa to unlock smoketest1 (parent → child).
 - Post-unlock psql state: `failed_logins=0`, `locked_at=null` — both reset.
 - smoketest1 re-login with correct password → HTTP 200 `{ok:true}`. Full cycle validated end-to-end on `api.azuresb.com`.
+
+
+## 2026-05-26 cont 2 — Logging "blind spot" was actually a documentation gap
+
+Investigating the "app stdout missing from journald" thread revealed `gridv2.service` is set with `StandardOutput=append:/var/log/gridv2/api.log` and `StandardError=append:/var/log/gridv2/api.err.log` — logs were captured the entire time, just to files instead of journald. Files contain everything: the original Phase A seed, the early empty-`MASTER_PASSWORD` boot loop (20+ "refusing to start" lines in api.err.log), every "MASTER present, no seeding action" no-op, both password reset paths fired today.
+
+**Decision:** keep file-based logging (no unit change). Document the paths in prod-state above. Debug command going forward: `sudo tail -f /var/log/gridv2/api.log` (or `api.err.log`).
+
+**Follow-up filed:** logrotate config — files currently 4 KB each but no rotation in place; left untouched they'll grow indefinitely.
 
