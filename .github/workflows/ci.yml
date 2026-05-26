@@ -27,6 +27,23 @@ jobs:
     defaults:
       run:
         working-directory: api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gridv2
+          POSTGRES_PASSWORD: gridv2test
+          POSTGRES_DB: gridv2_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://gridv2:gridv2test@localhost:5432/gridv2_test
+      MASTER_USERNAME: TestMaster
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,4 +53,5 @@ jobs:
           cache-dependency-path: api/package-lock.json
       - run: npm ci
       - run: npm run build
-      - run: npm test --if-present
+      - run: npm run db:migrate
+      - run: npm test
