@@ -1,11 +1,14 @@
-// Thin OddsPapi HTTP client. Just the fetch path — parse/upsert lives in
-// oddspapi-poll.ts (and later, dedicated parser/upsert modules).
+// Thin OddsPapi HTTP client. Just the fetch path — parse lives in
+// oddspapi-parser.ts, upsert in oddspapi-upsert.ts.
 //
-// API key comes from ODDSPAPI_KEY env var, set on the VPS at /etc/gridv2/env
-// (mode 0640 root:gridv2). Smoke test confirmed 5/23: bookmaker=pinnacle
-// returns ~92 markets on a live NBA fixture with ~5min refresh.
+// API conventions (per https://oddspapi.io/us/docs):
+//   - Base: https://api.oddspapi.io
+//   - Version prefix: /v4
+//   - Auth: ?apiKey=<key> query param (NOT Authorization: Bearer)
+//   - /odds-by-tournaments requires tournamentIds — there's no "all of Pinnacle"
+//     sweep call.
 
-export const ODDSPAPI_BASE = "https://api.oddspapi.io";
+export const ODDSPAPI_BASE = "https://api.oddspapi.io/v4";
 
 export class OddsPapiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -16,29 +19,31 @@ export class OddsPapiError extends Error {
 
 export interface OddsByTournamentsOpts {
   bookmaker?: string; // default 'pinnacle'
+  tournamentIds: ReadonlyArray<number | string>; // required
   signal?: AbortSignal;
 }
 
 /**
- * GET /odds-by-tournaments — single sweep call. Returns whatever the upstream
- * sends; the shape is not enforced here so future schema changes upstream
- * don't break the fetch path. Caller is responsible for parsing.
- *
- * Throws OddsPapiError on non-2xx response. Network failures propagate as-is
- * from `fetch`.
+ * GET /v4/odds-by-tournaments — pull all fixtures + markets for the given
+ * tournaments from a single bookmaker. Throws OddsPapiError on non-2xx.
  */
 export async function fetchOddsByTournaments(
   apiKey: string,
-  opts: OddsByTournamentsOpts = {},
+  opts: OddsByTournamentsOpts,
 ): Promise<unknown> {
+  if (!opts.tournamentIds || opts.tournamentIds.length === 0) {
+    throw new Error("tournamentIds is required (OddsPapi has no all-tournaments sweep)");
+  }
   const bookmaker = opts.bookmaker ?? "pinnacle";
-  const url = `${ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=${encodeURIComponent(bookmaker)}`;
+  const ids = opts.tournamentIds.join(",");
+  const url =
+    `${ODDSPAPI_BASE}/odds-by-tournaments` +
+    `?bookmaker=${encodeURIComponent(bookmaker)}` +
+    `&tournamentIds=${encodeURIComponent(ids)}` +
+    `&apiKey=${encodeURIComponent(apiKey)}`;
 
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
     signal: opts.signal,
   });
 
@@ -46,7 +51,7 @@ export async function fetchOddsByTournaments(
     const body = await res.text().catch(() => "");
     throw new OddsPapiError(
       res.status,
-      `oddspapi /odds-by-tournaments failed: ${res.status} ${res.statusText}${body ? " — " + body.slice(0, 200) : ""}`,
+      `oddspapi /v4/odds-by-tournaments failed: ${res.status} ${res.statusText}${body ? " — " + body.slice(0, 200) : ""}`,
     );
   }
 
@@ -54,9 +59,7 @@ export async function fetchOddsByTournaments(
 }
 
 /**
- * Lightweight structural summary of an arbitrary JSON payload — used to log
- * the response shape on the worker's first poll so we can design the parse
- * code based on what the upstream actually returns.
+ * Structural summary of an arbitrary JSON payload for log output.
  */
 export function summarizeShape(value: unknown, depth = 0): string {
   if (value === null) return "null";

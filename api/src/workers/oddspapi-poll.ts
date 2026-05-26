@@ -1,39 +1,39 @@
-// OddsPapi polling worker — runbook 09 Phase B.
+// OddsPapi polling worker — runbook 09 Phase B + D.
 //
-// This iteration is a STUB: polls /odds-by-tournaments every POLL_INTERVAL_MS
-// and logs the response shape + counts. No DB writes yet — Phase D adds the
-// parse + upsert path once we've seen real responses.
-//
-// Process model: long-lived Node process under systemd (gridv2-oddspapi.service,
-// installed by runbook 09 Phase C). Designed for `node dist/workers/oddspapi-poll.js`
-// after `tsc`. For manual testing pre-systemd: `npx tsx src/workers/oddspapi-poll.ts`.
+// Long-lived Node entrypoint under systemd (gridv2-oddspapi.service, installed
+// per runbook 09 Phase C). Fetches /v4/odds-by-tournaments every POLL_INTERVAL_MS,
+// parses, upserts into fixtures/markets/prices.
 //
 // Env vars consumed:
-//   ODDSPAPI_KEY              — API key (required; set on VPS at /etc/gridv2/env)
+//   ODDSPAPI_KEY              — API key (required)
 //   ODDSPAPI_BOOKMAKER        — default 'pinnacle'
-//   ODDSPAPI_POLL_INTERVAL_MS — default 300_000 (5 min, matches the upstream refresh)
-//   ODDSPAPI_SAMPLE_OUT       — optional path; on first successful poll, dumps
-//                               the raw JSON here for shape inspection.
-//                               Set to '/tmp/oddspapi-sample.json' for ad-hoc recon.
-//
-// SIGTERM / SIGINT trigger a graceful shutdown — cancels the in-flight poll
-// and exits with code 0 so systemd considers it a clean stop.
+//   ODDSPAPI_TOURNAMENT_IDS   — required; CSV of upstream tournament IDs.
+//                               Examples: "109" (MLB only), "109,17" (MLB+PL).
+//   ODDSPAPI_POLL_INTERVAL_MS — default 300_000 (5 min, matches upstream refresh)
+//   ODDSPAPI_DRY_RUN          — if "1", parse only, no DB writes (recon mode)
 
-import { writeFile } from "node:fs/promises";
 import {
   OddsPapiError,
   fetchOddsByTournaments,
   summarizeShape,
 } from "./oddspapi-client";
+import { parseOddsResponse } from "./oddspapi-parser";
+import { upsertOddsBatch } from "./oddspapi-upsert";
 
 const POLL_INTERVAL_MS = Number(process.env.ODDSPAPI_POLL_INTERVAL_MS ?? 300_000);
 const BOOKMAKER = process.env.ODDSPAPI_BOOKMAKER ?? "pinnacle";
-const SAMPLE_OUT = process.env.ODDSPAPI_SAMPLE_OUT;
+const TOURNAMENT_IDS_RAW = process.env.ODDSPAPI_TOURNAMENT_IDS ?? "";
+const TOURNAMENT_IDS = TOURNAMENT_IDS_RAW
+  .split(",")
+  .map((s) => s.trim())
+  .filter((s) => s.length > 0)
+  .map((s) => Number(s))
+  .filter((n) => Number.isFinite(n));
+const DRY_RUN = process.env.ODDSPAPI_DRY_RUN === "1";
 
 function log(...args: unknown[]) {
   console.log(`[oddspapi-poll]`, ...args);
 }
-
 function logErr(...args: unknown[]) {
   console.error(`[oddspapi-poll]`, ...args);
 }
@@ -41,7 +41,6 @@ function logErr(...args: unknown[]) {
 interface RunState {
   apiKey: string;
   controller: AbortController;
-  sampleDumped: boolean;
   pollCount: number;
   shuttingDown: boolean;
 }
@@ -50,34 +49,36 @@ async function runOnce(state: RunState): Promise<void> {
   const t0 = Date.now();
   state.pollCount += 1;
   const poll = state.pollCount;
-  log(`poll #${poll}: GET /odds-by-tournaments?bookmaker=${BOOKMAKER}`);
+  log(`poll #${poll}: GET /v4/odds-by-tournaments?bookmaker=${BOOKMAKER}&tournamentIds=${TOURNAMENT_IDS.join(",")}`);
 
   try {
     const body = await fetchOddsByTournaments(state.apiKey, {
       bookmaker: BOOKMAKER,
+      tournamentIds: TOURNAMENT_IDS,
       signal: state.controller.signal,
     });
 
-    const elapsed = Date.now() - t0;
-    const shape = summarizeShape(body);
-    const topLevelType = Array.isArray(body)
-      ? `Array(${(body as unknown[]).length})`
-      : typeof body;
-    log(
-      `poll #${poll} ok in ${elapsed}ms — top: ${topLevelType}, shape: ${shape}`,
-    );
+    const fetchMs = Date.now() - t0;
+    log(`poll #${poll} fetched in ${fetchMs}ms — shape: ${summarizeShape(body)}`);
 
-    // On first successful poll, optionally dump raw JSON to a file so we can
-    // design the parse code from real data.
-    if (!state.sampleDumped && SAMPLE_OUT) {
-      try {
-        await writeFile(SAMPLE_OUT, JSON.stringify(body, null, 2), "utf8");
-        log(`poll #${poll} raw sample written to ${SAMPLE_OUT}`);
-        state.sampleDumped = true;
-      } catch (err) {
-        logErr(`poll #${poll} failed to write sample to ${SAMPLE_OUT}:`, err);
-      }
+    const { fixtures, stats } = parseOddsResponse(body, { bookmaker: BOOKMAKER });
+    log(
+      `poll #${poll} parsed — fixtures=${stats.fixturesParsed} markets=${stats.marketsParsed} (skipped=${stats.marketsSkipped}) outcomes=${stats.outcomesParsed} (skipped=${stats.outcomesSkipped})`,
+    );
+    if (Object.keys(stats.skippedReasons).length > 0) {
+      log(`poll #${poll} skipped reasons:`, stats.skippedReasons);
     }
+
+    if (DRY_RUN) {
+      log(`poll #${poll} dry-run — skipping DB upsert`);
+      return;
+    }
+
+    const upsertStats = await upsertOddsBatch(fixtures);
+    const totalMs = Date.now() - t0;
+    log(
+      `poll #${poll} upserted in ${totalMs - fetchMs}ms — fixtures=${upsertStats.fixturesUpserted} markets=${upsertStats.marketsUpserted} prices=${upsertStats.pricesInserted} (total ${totalMs}ms)`,
+    );
   } catch (err) {
     if ((err as Error)?.name === "AbortError") {
       log(`poll #${poll} aborted (shutdown in progress)`);
@@ -97,33 +98,32 @@ async function main(): Promise<void> {
     logErr("ODDSPAPI_KEY not set — refusing to start.");
     process.exit(1);
   }
-
-  log(`starting — interval=${POLL_INTERVAL_MS}ms, bookmaker=${BOOKMAKER}`);
-  if (SAMPLE_OUT) {
-    log(`first-response sample will be written to ${SAMPLE_OUT}`);
+  if (TOURNAMENT_IDS.length === 0) {
+    logErr("ODDSPAPI_TOURNAMENT_IDS not set or empty — refusing to start. Example: ODDSPAPI_TOURNAMENT_IDS=109");
+    process.exit(1);
   }
+
+  log(
+    `starting — interval=${POLL_INTERVAL_MS}ms, bookmaker=${BOOKMAKER}, tournamentIds=[${TOURNAMENT_IDS.join(",")}], dryRun=${DRY_RUN}`,
+  );
 
   const state: RunState = {
     apiKey,
     controller: new AbortController(),
-    sampleDumped: false,
     pollCount: 0,
     shuttingDown: false,
   };
 
-  // Graceful shutdown — abort the in-flight fetch and exit cleanly.
   const shutdown = (signal: string) => {
     if (state.shuttingDown) return;
     state.shuttingDown = true;
     log(`received ${signal}, shutting down`);
     state.controller.abort();
-    // Give the in-flight poll a beat to log its abort before exiting.
     setTimeout(() => process.exit(0), 200);
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
 
-  // Kick off the first poll immediately, then settle into the interval.
   await runOnce(state);
   setInterval(() => {
     if (state.shuttingDown) return;

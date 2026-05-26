@@ -1,27 +1,21 @@
 // OddsPapi-sourced market data — runbook 09.
 //
-// Three tables, normalized:
-//
-//   fixtures  — one row per upstream event (game/match). Identified by
-//               oddspapi_event_id (upstream's stable ID) for upserts.
-//
-//   markets   — one row per (fixture × market_type × period). E.g. a single
-//               NBA game produces a moneyline market, a spread market, and a
-//               total market — each with its own row, all linked to the same
-//               fixture.
-//
-//   prices    — append-only snapshots. Each poll inserts a fresh row per
-//               market × side (home/away/over/under) with the current odds
-//               and line. Retention policy TBD in a later PR.
-//
-// Indexes are conservative: parent FK indexes + a (market_id, captured_at)
-// index for "latest price per market" queries. More can be added once we see
-// real query patterns.
+// Phase D update (2026-05-26):
+//   - fixtures: + participant1_id / participant2_id (OddsPapi doesn't return
+//     team-name strings on /odds-by-tournaments; teams are upstream-ID-only
+//     until a participants poller lands). home_team / away_team made nullable
+//     so backfill can happen later without breaking existing rows.
+//   - markets: + line (DECIMAL — spread/total number, NULL for moneyline) and
+//     is_alt_line (BOOLEAN — the bookmakerMarketId prefix "altLine" vs "line").
+//     Unique key changed from (fixture_id, market_type, period) to
+//     (fixture_id, oddspapi_market_id) because one fixture can have many
+//     totals markets (one per alt-line). oddspapi_market_id is now NOT NULL.
+//   - prices: unchanged. Side values are 'home' / 'away' / 'over' / 'under'.
 
-import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
+  boolean,
   decimal,
   index,
   pgTable,
@@ -44,8 +38,16 @@ export const fixtures = pgTable(
 
     sport: text("sport").notNull(), // e.g. 'basketball', 'football'
     league: text("league").notNull(), // e.g. 'NBA', 'NCAAB', 'NFL'
-    homeTeam: text("home_team").notNull(),
-    awayTeam: text("away_team").notNull(),
+
+    // OddsPapi's per-team IDs. Resolved to readable names by a future
+    // /v4/participants poller; until then, the team-name columns may be NULL.
+    participant1Id: bigint("participant1_id", { mode: "number" }).notNull(),
+    participant2Id: bigint("participant2_id", { mode: "number" }).notNull(),
+
+    // Nullable until the participants table lands.
+    homeTeam: text("home_team"),
+    awayTeam: text("away_team"),
+
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
 
     // 'open' | 'live' | 'finished' | 'cancelled' | 'postponed'
@@ -81,16 +83,25 @@ export const markets = pgTable(
       .notNull()
       .references(() => fixtures.id, { onDelete: "cascade" }),
 
-    // 'moneyline' | 'spread' | 'total'
+    // 'moneyline' | 'spreads' | 'totals'
+    // (teamTotal markets are SKIPPED in Phase D — they need separate
+    // "which team" handling. Future enhancement.)
     marketType: text("market_type").notNull(),
 
     // 'fulltime' | 'first_half' | 'second_half' | 'first_quarter' | etc.
     period: text("period").notNull().default("fulltime"),
 
-    // Upstream's stable market ID, when present. Used for upserts within a
-    // fixture. Nullable because not every upstream payload exposes one — fall
-    // back to (fixture_id, market_type, period) as the natural key in that case.
-    oddspapiMarketId: text("oddspapi_market_id"),
+    // Spread number (e.g. -1.5) for spreads, line (e.g. 7.5) for totals.
+    // NULL for moneyline.
+    line: decimal("line", { precision: 8, scale: 2 }),
+
+    // bookmakerMarketId prefix: "line" = headline market, "altLine" = alt line.
+    isAltLine: boolean("is_alt_line").notNull().default(false),
+
+    // Upstream's per-fixture stable market identifier (the numeric key in the
+    // markets dict, e.g. "131"). NOT NULL after Phase D — every market we
+    // insert has one. Drives upserts.
+    oddspapiMarketId: text("oddspapi_market_id").notNull(),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -101,7 +112,7 @@ export const markets = pgTable(
   },
   (t) => [
     index("idx_markets_fixture").on(t.fixtureId),
-    unique("uq_markets_natural_key").on(t.fixtureId, t.marketType, t.period),
+    unique("uq_markets_fixture_oddspapi_id").on(t.fixtureId, t.oddspapiMarketId),
   ],
 );
 
@@ -127,16 +138,12 @@ export const prices = pgTable(
     // Decimal odds (e.g. 1.952, 2.40). DECIMAL(8,3) covers up to 99999.999.
     odds: decimal("odds", { precision: 8, scale: 3 }).notNull(),
 
-    // Spread line or total line. NULL for moneyline. DECIMAL(8,2) covers up to
-    // 999999.99 — plenty for any sport's spreads/totals.
-    line: decimal("line", { precision: 8, scale: 2 }),
-
     capturedAt: timestamp("captured_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
-    // "Latest price per market" queries: ORDER BY captured_at DESC LIMIT 1.
+    // "Latest price per (market, side)" queries: ORDER BY captured_at DESC LIMIT 1.
     index("idx_prices_market_captured").on(t.marketId, t.capturedAt),
   ],
 );
