@@ -8,6 +8,13 @@
       "when": 1779654972295,
       "tag": "0000_auth_bootstrap",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779836796542,
+      "tag": "0001_broken_alex_power",
+      "breakpoints": true
     }
   ]
 }
