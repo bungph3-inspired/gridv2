@@ -1,8 +1,9 @@
-// /api/oddspapi/* proxy routes — PR1 covers /tournaments only.
+// /api/oddspapi/* proxy routes. PR1 covered /tournaments; PR2 adds /participants.
 //
 // Pattern matches auth.test.ts: seedFreshMaster() inside txTest, login to
-// pick up a session cookie, hit the route. Fixtures are seeded with raw
-// drizzle inserts on the same transactional `db` Proxy.
+// pick up a session cookie, hit the route. Fixtures (for /tournaments) are
+// seeded with raw drizzle inserts on the same transactional `db` Proxy;
+// /participants is pure in-memory map lookups, no DB.
 
 import { describe, expect } from "vitest";
 import { sql } from "drizzle-orm";
@@ -53,6 +54,10 @@ async function seedFixture(opts: {
     status: opts.status,
   });
 }
+
+/* ========================================================================== */
+/* GET /api/oddspapi/tournaments                                              */
+/* ========================================================================== */
 
 describe("GET /api/oddspapi/tournaments", () => {
   txTest("401 when no session cookie", async () => {
@@ -233,5 +238,131 @@ describe("GET /api/oddspapi/tournaments", () => {
     expect(body).toHaveLength(1);
     expect(body[0]!.upcomingFixtures).toBe(1);
     expect(body[0]!.liveFixtures).toBe(1);
+  });
+});
+
+/* ========================================================================== */
+/* GET /api/oddspapi/participants                                             */
+/* ========================================================================== */
+
+describe("GET /api/oddspapi/participants", () => {
+  txTest("401 when no session cookie", async () => {
+    await seedFreshMaster();
+    const res = await request("GET", "/api/oddspapi/participants?sportId=13&participantIds=3644");
+    expect(res.status).toBe(401);
+  });
+
+  txTest("400 when sportId is missing", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request("GET", "/api/oddspapi/participants?participantIds=3644", { cookie });
+    expect(res.status).toBe(400);
+  });
+
+  txTest("400 when participantIds is missing", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request("GET", "/api/oddspapi/participants?sportId=13", { cookie });
+    expect(res.status).toBe(400);
+  });
+
+  txTest("400 when participantIds is empty (just commas)", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=,,",
+      { cookie },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  txTest("400 when participantIds contains non-integer junk", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=3644,abc,3649",
+      { cookie },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  txTest("returns ESPN-style abbrs for known MLB IDs", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=3644,3649,3654,5929",
+      { cookie },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, string>;
+    expect(body).toEqual({
+      "3644": "CWS",
+      "3649": "MIN",
+      "3654": "NYY",
+      "5929": "LAA",
+    });
+  });
+
+  txTest("falls back to '#<id>' for unknown IDs in known sport", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=3644,999999",
+      { cookie },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, string>;
+    expect(body).toEqual({
+      "3644": "CWS",
+      "999999": "#999999",
+    });
+  });
+
+  txTest("returns all '#<id>' fallback for unmapped sport (e.g. tennis)", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    // Tennis (sportId 12) has no participant map yet
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=12&participantIds=100,200",
+      { cookie },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, string>;
+    expect(body).toEqual({ "100": "#100", "200": "#200" });
+  });
+
+  txTest("dedupes repeated IDs in the input CSV", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=3644,3644,3649,3644",
+      { cookie },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, string>;
+    // Object keys are unique by definition; check both are present
+    expect(Object.keys(body).sort()).toEqual(["3644", "3649"]);
+    expect(body["3644"]).toBe("CWS");
+    expect(body["3649"]).toBe("MIN");
+  });
+
+  txTest("ignores empty CSV slots between commas", async () => {
+    await seedFreshMaster();
+    const cookie = await loginAs(MASTER_USERNAME, MASTER_PASSWORD);
+    // "3644,,3649" should be treated as two valid IDs
+    const res = await request(
+      "GET",
+      "/api/oddspapi/participants?sportId=13&participantIds=3644,,3649",
+      { cookie },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, string>;
+    expect(body).toEqual({ "3644": "CWS", "3649": "MIN" });
   });
 });
