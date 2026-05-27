@@ -18,13 +18,13 @@
 //  exports — they're never mutated after definition.
 // ════════════════════════════════════════════════════════════════════════════
 
-export const HARDCODED_KEY = '8d38ac97-93db-4baa-9123-bf8c210ff695';
+import { apiBase } from './agent-api.js';
 
 // ─── ODDSPAPI CONFIG ────────────────────────────────────────────────────────
 // Sport IDs: Basketball=11, Baseball=13, Hockey=15, AmFootball=14
 // One entry per *league*. Multiple leagues can share an OddsPapi sportId
 // (e.g. NBA + NCAAB both = 11). `key` is unique per league and used
-// internally; `sportId` is what we pass to OddsPapi URLs. `tournamentMatch`
+// internally; `sportId` is what we pass to URLs. `tournamentMatch`
 // (regex) disambiguates which tournament to pick when several share a sportId.
 export const SPORT_CFG = [
   { key:'NBA',   label:'NBA',   sportId:11, tournamentId:132 },
@@ -35,7 +35,12 @@ export const SPORT_CFG = [
   { key:'NCAAF', label:'NCAAF', sportId:14, tournamentId:null, tournamentMatch:/NCAA|college/i },
 ];
 
-export const BASE = 'https://api.oddspapi.io/v4';
+// Server-side OddsPapi proxy. apiBase() picks the right origin per env:
+//   - prod (app.azuresb.com)  → 'https://api.azuresb.com/api/oddspapi'
+//   - dev  (anything else)    → '/api/oddspapi'  (Vite server.proxy forwards)
+// Replaces the old direct OddsPapi call ('https://api.oddspapi.io/v4').
+// The proxy is auth-gated via the session cookie — no more bs_key apiKey.
+export const BASE = apiBase() + '/api/oddspapi';
 export const AUTO_MS = 2 * 60 * 1000;
 
 // ─── TEASER CONFIG ──────────────────────────────────────────────────────────
@@ -120,9 +125,13 @@ export function getGameMeta(g){
 // ─── MUTABLE STATE ──────────────────────────────────────────────────────────
 // Single source of truth for everything that changes during a session.
 // localStorage initializers run at module-load (which happens once per page).
+//
+// Removed in PR5 (server-side proxy cutover):
+//   - HARDCODED_KEY constant — no more upstream OddsPapi apiKey in browser
+//   - state.apiKey + bs_key localStorage — auth now via session cookie set
+//     by the agent login flow (POST /api/login → gridv2_session cookie)
 export const state = {
-  // ── auth + book preference ─────────────────────────────
-  apiKey:    localStorage.getItem('bs_key')  || HARDCODED_KEY,
+  // ── book preference ─────────────────────────────────────
   // Mock Mode default: ON when fixture available and user hasn't opted out.
   mockMode:  !!window.MOCK_DATA && localStorage.getItem('bs_mock') !== '0',
   prefBook:  localStorage.getItem('bs_book') || 'draftkings',
