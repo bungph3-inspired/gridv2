@@ -42,6 +42,7 @@ export interface ParsedFixture {
   oddspapiEventId: string;
   sport: string;
   league: string;
+  tournamentId: number;
   participant1Id: number;
   participant2Id: number;
   startsAt: Date;
@@ -298,6 +299,7 @@ export function parseOddsResponse(
       oddspapiEventId,
       sport: SPORT_BY_ID[sportId] ?? `sport-${sportId}`,
       league: tournamentLeague[tournamentId] ?? `tournament-${tournamentId}`,
+      tournamentId,
       participant1Id,
       participant2Id,
       startsAt,

@@ -7,6 +7,7 @@ import { cors } from "hono/cors";
 import type { AppEnv } from "./auth/types";
 import { auth } from "./routes/auth";
 import { agentsRoutes } from "./routes/agents";
+import { oddspapiRoutes } from "./routes/oddspapi";
 
 export function buildApp(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -25,6 +26,7 @@ export function buildApp(): Hono<AppEnv> {
 
   app.route("/api", auth);
   app.route("/api/agents", agentsRoutes);
+  app.route("/api/oddspapi", oddspapiRoutes);
 
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((err, c) => {
