@@ -4,8 +4,8 @@
 // 4-endpoint server-side proxy that mirrors the OddsPapi response shapes
 // the existing frontend already parses. Endpoints land per PR:
 //   PR1 — /tournaments
-//   PR2 — /participants     ← this PR
-//   PR3 — /markets
+//   PR2 — /participants
+//   PR3 — /markets         ← this PR
 //   PR4 — /odds-by-tournaments
 //
 // Auth: every route runs requireSession + requireActive. No real-money risk,
@@ -15,9 +15,15 @@ import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireActive, requireSession } from "../auth/middleware";
 import { db } from "../db/client";
-import { fixtures } from "../db/schema";
+import { fixtures, markets } from "../db/schema";
 import { TOURNAMENT_MAP } from "../data/tournament-map";
 import { MLB_PARTICIPANTS } from "../data/mlb-participants";
+import {
+  marketName,
+  outcomeNames,
+  synthMarketId,
+  synthOutcomeIds,
+} from "../data/synthetic-ids";
 import type { AppEnv } from "../auth/types";
 
 // Inverse of the parser's SPORT_BY_ID — proxy clients pass numeric sportId
@@ -49,9 +55,6 @@ oddspapiRoutes.use("*", requireSession, requireActive);
 
 /* -------------------------------------------------------------------------- */
 /* GET /tournaments?sportId=N                                                 */
-/*                                                                            */
-/* Aggregates fixtures by tournament_id within a sport. Returns the shape    */
-/* the frontend's `fetchTournaments()` in src/api.js expects.                */
 /* -------------------------------------------------------------------------- */
 
 oddspapiRoutes.get("/tournaments", async (c) => {
@@ -65,15 +68,8 @@ oddspapiRoutes.get("/tournaments", async (c) => {
   }
 
   const sport = SPORT_BY_ID[sportId];
-  if (!sport) {
-    // Unknown sport — return an empty array rather than 404, matching the
-    // upstream behavior and giving the frontend a no-op response to render.
-    return c.json([]);
-  }
+  if (!sport) return c.json([]);
 
-  // GROUP BY tournament_id with conditional counts. Postgres FILTER syntax
-  // is the cleanest way to express "count rows where X" alongside other
-  // counts in a single scan.
   const rows = await db
     .select({
       tournamentId: fixtures.tournamentId,
@@ -88,8 +84,6 @@ oddspapiRoutes.get("/tournaments", async (c) => {
     .where(eq(fixtures.sport, sport))
     .groupBy(fixtures.tournamentId);
 
-  // Drop tournament_id=0 (the schema default for rows that pre-date the
-  // column or aren't yet refreshed by the poller).
   const result = rows
     .filter((r) => r.tournamentId !== 0)
     .map((r) => {
@@ -109,14 +103,6 @@ oddspapiRoutes.get("/tournaments", async (c) => {
 
 /* -------------------------------------------------------------------------- */
 /* GET /participants?sportId=N&participantIds=A,B,C                          */
-/*                                                                            */
-/* Resolves a CSV of upstream participant IDs to ESPN-style 3-letter team    */
-/* abbrs. Unknown IDs come back as "#<id>" so the UI always renders          */
-/* something — the frontend used to derive abbrs by splitting the team name  */
-/* on spaces, which mangled "Boston Red Sox" → "BRS". Emitting clean abbrs   */
-/* upstream avoids that bug class.                                            */
-/*                                                                            */
-/* Response shape (per spec): { "3644": "CWS", "3649": "MIN", ... }          */
 /* -------------------------------------------------------------------------- */
 
 oddspapiRoutes.get("/participants", async (c) => {
@@ -130,8 +116,6 @@ oddspapiRoutes.get("/participants", async (c) => {
   }
 
   const participantIdsRaw = c.req.query("participantIds") ?? "";
-  // Parse CSV → integer[]. Reject anything that isn't a clean integer to
-  // avoid silently coercing junk like "abc" or empty strings into NaN.
   const ids: number[] = [];
   for (const part of participantIdsRaw.split(",")) {
     const trimmed = part.trim();
@@ -155,13 +139,72 @@ oddspapiRoutes.get("/participants", async (c) => {
     );
   }
 
-  // Dedupe so a caller passing "3644,3644,3649" gets one entry per ID.
   const uniqueIds = Array.from(new Set(ids));
-
   const map = PARTICIPANTS_BY_SPORT[sportId] ?? {};
   const result: Record<string, string> = {};
   for (const id of uniqueIds) {
     result[String(id)] = map[id] ?? fallbackAbbr(id);
   }
+  return c.json(result);
+});
+
+/* -------------------------------------------------------------------------- */
+/* GET /markets?sportId=N                                                     */
+/*                                                                            */
+/* Returns the catalog of distinct (marketType, line, period) combinations    */
+/* seen in fixtures of this sport. Synthetic marketId + outcomeIds via         */
+/* synthMarketId/synthOutcomeIds (PR4's odds-by-tournaments uses the same      */
+/* functions, so IDs match across both responses by construction).             */
+/* -------------------------------------------------------------------------- */
+
+oddspapiRoutes.get("/markets", async (c) => {
+  const sportIdRaw = c.req.query("sportId");
+  const sportId = sportIdRaw !== undefined ? Number(sportIdRaw) : NaN;
+  if (!Number.isFinite(sportId) || !Number.isInteger(sportId)) {
+    return c.json(
+      { error: "bad_request", detail: "sportId is required and must be an integer" },
+      400,
+    );
+  }
+
+  const sport = SPORT_BY_ID[sportId];
+  if (!sport) return c.json([]);
+
+  // GROUP BY (market_type, line, period) gives us the unique catalog rows.
+  // Volume is small — for MLB with ~30 fixtures × ~38 markets, distinct
+  // combos are ~50-80 rows. No index needed.
+  const rows = await db
+    .select({
+      marketType: markets.marketType,
+      line: markets.line,
+      period: markets.period,
+    })
+    .from(markets)
+    .innerJoin(fixtures, eq(markets.fixtureId, fixtures.id))
+    .where(eq(fixtures.sport, sport))
+    .groupBy(markets.marketType, markets.line, markets.period);
+
+  const result = rows.map((r) => {
+    const marketId = synthMarketId(r.marketType, r.line, r.period);
+    const [oid1, oid2] = synthOutcomeIds(marketId);
+    const [name1, name2] = outcomeNames(r.marketType);
+    return {
+      marketId,
+      marketName: marketName(r.marketType, r.line),
+      marketLength: 2,
+      sportId,
+      handicap: r.line !== null ? Number(r.line) : 0,
+      // Spec mandates "result" regardless of our DB's "fulltime" string —
+      // keeps the response shape stable when non-fulltime periods land.
+      period: "result",
+      marketType: r.marketType,
+      playerProp: false,
+      outcomes: [
+        { outcomeId: oid1, outcomeName: name1 },
+        { outcomeId: oid2, outcomeName: name2 },
+      ],
+    };
+  });
+
   return c.json(result);
 });
