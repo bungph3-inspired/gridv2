@@ -1,9 +1,13 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  api.js — OddsPapi integration + refresh cycle
+//  api.js — OddsPapi proxy integration + refresh cycle
 //  ────────────────────────────────────────────────────────────────────────────
+//  PR5 cutover: this module now talks to the server-side proxy at
+//  /api/oddspapi/* (api.azuresb.com in prod) instead of OddsPapi directly.
+//  No more apiKey in the browser — auth is the session cookie set by login.
+//
 //  Mock-mode router, live fetch, market metadata + participants resolution,
 //  market normalization, board refresh cycle, line-movement detection, online
-//  status, quota display. Anything that talks to the data layer lives here.
+//  status. Anything that talks to the data layer lives here.
 // ════════════════════════════════════════════════════════════════════════════
 
 import { state, SPORT_CFG, BASE, AUTO_MS } from './state.js';
@@ -43,24 +47,35 @@ export function mockResolve(path) {
   return undefined;
 }
 
+// PR5 cutover: no more apiKey query param. Auth is the session cookie set by
+// the agent login flow. `credentials: 'include'` ships the cookie on every
+// fetch (including cross-origin when prod app.azuresb.com hits
+// api.azuresb.com).
+//
+// 401 handling: the proxy returns 401 if the session expired. Today we let
+// that bubble up as a thrown error which fetchAndRender catches and surfaces
+// as Offline. A future PR can add a 401-to-login-redirect interceptor here
+// the way agent.js does on its own apiFetch.
 export async function apiFetch(path) {
   if (state.mockMode && window.MOCK_DATA) {
     const r = mockResolve(path);
     if (r !== undefined) return Promise.resolve(r);
   }
-  if (!state.apiKey||state.apiKey==='') { _showBoardMsg('key'); return null; }
-  const sep = path.includes('?')?'&':'?';
-  const res = await fetch(`${BASE}${path}${sep}apiKey=${state.apiKey}`);
-  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.error?.message||`HTTP ${res.status}`); }
+  const res = await fetch(`${BASE}${path}`, { credentials: 'include' });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error?.message || e.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
 export async function resolveParticipants(ids, sportId) {
   const missing = ids.filter(id=>!state.participantCache[id]);
   if (!missing.length) return;
-  // OddsPapi /participants requires sportId (numeric)
+  // Proxy /participants requires sportId (numeric)
   const data = await apiFetch(`/participants?participantIds=${missing.join(',')}&sportId=${sportId}`);
   // Handle both shapes: array of {participantId, participantName} OR object {id: name}
+  // PR2 emits the object shape; the legacy mock fixture may still emit the array form.
   if (Array.isArray(data)) {
     data.forEach(p=>{ state.participantCache[p.participantId]=p.participantName||p.shortName||String(p.participantId); });
   } else if (data && typeof data==='object') {
@@ -84,7 +99,6 @@ export async function fetchMarketMeta(sportId) {
 }
 
 export async function fetchOdds(sportKey) {
-  if (!state.mockMode && (!state.apiKey||state.apiKey==='YOUR_API_KEY_HERE')) { _showBoardMsg('key'); return null; }
   const cfg = SPORT_CFG.find(s=>s.key===sportKey);
   if (!cfg) return null;
   const sportId = cfg.sportId;
@@ -116,7 +130,7 @@ export async function fetchOdds(sportKey) {
   const pids = [...new Set(data.flatMap(g=>[g.participant1Id,g.participant2Id]))];
   await resolveParticipants(pids, sportId);
 
-  // No quota headers from OddsPapi — just show connected
+  // No quota headers from the proxy — just show connected
   updateQuota();
   return data;
 }
