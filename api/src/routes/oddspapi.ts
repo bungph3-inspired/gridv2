@@ -2,18 +2,22 @@
 //
 // Per spec `projects/GridV2/specs/2026-05-27-oddspapi-proxy.md`, this is a
 // 4-endpoint server-side proxy that mirrors the OddsPapi response shapes
-// the existing frontend already parses. PR1 ships just the tournaments
-// endpoint — markets, participants, and odds-by-tournaments land in PR2-4.
+// the existing frontend already parses. Endpoints land per PR:
+//   PR1 — /tournaments
+//   PR2 — /participants     ← this PR
+//   PR3 — /markets
+//   PR4 — /odds-by-tournaments
 //
 // Auth: every route runs requireSession + requireActive. No real-money risk,
 // but issued accounts only — same model as /api/agents.
 
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { requireActive, requireSession } from "../auth/middleware";
 import { db } from "../db/client";
 import { fixtures } from "../db/schema";
 import { TOURNAMENT_MAP } from "../data/tournament-map";
+import { MLB_PARTICIPANTS } from "../data/mlb-participants";
 import type { AppEnv } from "../auth/types";
 
 // Inverse of the parser's SPORT_BY_ID — proxy clients pass numeric sportId
@@ -27,6 +31,17 @@ const SPORT_BY_ID: Record<number, string> = {
   15: "ice-hockey",
 };
 
+// Per-sport participant maps. Only baseball has coverage in PR2; other sports
+// fall through to all-fallback responses until their maps land.
+const PARTICIPANTS_BY_SPORT: Record<number, Record<number, string>> = {
+  13: MLB_PARTICIPANTS,
+};
+
+/** Build the `#<id>` fallback string used when a participant ID isn't mapped. */
+function fallbackAbbr(id: number): string {
+  return `#${id}`;
+}
+
 export const oddspapiRoutes = new Hono<AppEnv>();
 
 // Every route below runs through requireSession + requireActive first.
@@ -35,8 +50,8 @@ oddspapiRoutes.use("*", requireSession, requireActive);
 /* -------------------------------------------------------------------------- */
 /* GET /tournaments?sportId=N                                                 */
 /*                                                                            */
-/* Aggregates fixtures by tournament_id within a sport. Returns the shape     */
-/* the frontend's `fetchTournaments()` in src/api.js expects.                 */
+/* Aggregates fixtures by tournament_id within a sport. Returns the shape    */
+/* the frontend's `fetchTournaments()` in src/api.js expects.                */
 /* -------------------------------------------------------------------------- */
 
 oddspapiRoutes.get("/tournaments", async (c) => {
@@ -89,5 +104,64 @@ oddspapiRoutes.get("/tournaments", async (c) => {
       };
     });
 
+  return c.json(result);
+});
+
+/* -------------------------------------------------------------------------- */
+/* GET /participants?sportId=N&participantIds=A,B,C                          */
+/*                                                                            */
+/* Resolves a CSV of upstream participant IDs to ESPN-style 3-letter team    */
+/* abbrs. Unknown IDs come back as "#<id>" so the UI always renders          */
+/* something — the frontend used to derive abbrs by splitting the team name  */
+/* on spaces, which mangled "Boston Red Sox" → "BRS". Emitting clean abbrs   */
+/* upstream avoids that bug class.                                            */
+/*                                                                            */
+/* Response shape (per spec): { "3644": "CWS", "3649": "MIN", ... }          */
+/* -------------------------------------------------------------------------- */
+
+oddspapiRoutes.get("/participants", async (c) => {
+  const sportIdRaw = c.req.query("sportId");
+  const sportId = sportIdRaw !== undefined ? Number(sportIdRaw) : NaN;
+  if (!Number.isFinite(sportId) || !Number.isInteger(sportId)) {
+    return c.json(
+      { error: "bad_request", detail: "sportId is required and must be an integer" },
+      400,
+    );
+  }
+
+  const participantIdsRaw = c.req.query("participantIds") ?? "";
+  // Parse CSV → integer[]. Reject anything that isn't a clean integer to
+  // avoid silently coercing junk like "abc" or empty strings into NaN.
+  const ids: number[] = [];
+  for (const part of participantIdsRaw.split(",")) {
+    const trimmed = part.trim();
+    if (trimmed === "") continue;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) {
+      return c.json(
+        {
+          error: "bad_request",
+          detail: `participantIds must be a CSV of integers; got "${trimmed}"`,
+        },
+        400,
+      );
+    }
+    ids.push(n);
+  }
+  if (ids.length === 0) {
+    return c.json(
+      { error: "bad_request", detail: "participantIds is required and must be non-empty" },
+      400,
+    );
+  }
+
+  // Dedupe so a caller passing "3644,3644,3649" gets one entry per ID.
+  const uniqueIds = Array.from(new Set(ids));
+
+  const map = PARTICIPANTS_BY_SPORT[sportId] ?? {};
+  const result: Record<string, string> = {};
+  for (const id of uniqueIds) {
+    result[String(id)] = map[id] ?? fallbackAbbr(id);
+  }
   return c.json(result);
 });
