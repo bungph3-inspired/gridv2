@@ -3,7 +3,8 @@
 //
 // Strategy:
 //   - fixtures: ON CONFLICT (oddspapi_event_id) DO UPDATE (status, starts_at,
-//     participant1_id, participant2_id, updated_at). Returns the row id.
+//     participant1_id, participant2_id, tournament_id, updated_at). Returns
+//     the row id.
 //   - markets: ON CONFLICT (fixture_id, oddspapi_market_id) DO UPDATE (line,
 //     is_alt_line, updated_at). Returns the row id.
 //   - prices: INSERT only. Append-only snapshots; retention is Phase E.
@@ -40,6 +41,7 @@ export async function upsertOddsBatch(
           oddspapiEventId: f.oddspapiEventId,
           sport: f.sport,
           league: f.league,
+          tournamentId: f.tournamentId,
           participant1Id: f.participant1Id,
           participant2Id: f.participant2Id,
           startsAt: f.startsAt,
@@ -50,6 +52,7 @@ export async function upsertOddsBatch(
           set: {
             sport: f.sport,
             league: f.league,
+            tournamentId: f.tournamentId,
             participant1Id: f.participant1Id,
             participant2Id: f.participant2Id,
             startsAt: f.startsAt,

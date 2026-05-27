@@ -11,6 +11,11 @@
 //     (fixture_id, oddspapi_market_id) because one fixture can have many
 //     totals markets (one per alt-line). oddspapi_market_id is now NOT NULL.
 //   - prices: unchanged. Side values are 'home' / 'away' / 'over' / 'under'.
+//
+// 2026-05-27: + tournament_id on fixtures (DEFAULT 0). Needed by the
+// /api/oddspapi/tournaments proxy endpoint so it can group fixtures by their
+// upstream tournament identifier (e.g. 109 = MLB). Filled on every upsert by
+// the parser/poller; old rows carry 0 until they next refresh.
 
 import {
   bigint,
@@ -39,6 +44,12 @@ export const fixtures = pgTable(
     sport: text("sport").notNull(), // e.g. 'basketball', 'football'
     league: text("league").notNull(), // e.g. 'NBA', 'NCAAB', 'NFL'
 
+    // OddsPapi's upstream tournament ID (e.g. 109 = MLB, 132 = NBA). Default
+    // 0 covers historical rows that pre-date this column; the parser/poller
+    // writes the real ID on every refresh. The /api/oddspapi/tournaments
+    // proxy excludes rows where tournament_id = 0.
+    tournamentId: bigint("tournament_id", { mode: "number" }).notNull().default(0),
+
     // OddsPapi's per-team IDs. Resolved to readable names by a future
     // /v4/participants poller; until then, the team-name columns may be NULL.
     participant1Id: bigint("participant1_id", { mode: "number" }).notNull(),
@@ -64,6 +75,7 @@ export const fixtures = pgTable(
     index("idx_fixtures_starts_at").on(t.startsAt),
     index("idx_fixtures_sport_league").on(t.sport, t.league),
     index("idx_fixtures_status").on(t.status),
+    index("idx_fixtures_tournament").on(t.tournamentId),
   ],
 );
 

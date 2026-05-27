@@ -19,6 +19,7 @@ import {
 } from "./oddspapi-client";
 import { parseOddsResponse } from "./oddspapi-parser";
 import { upsertOddsBatch } from "./oddspapi-upsert";
+import { tournamentLeagueMap } from "../data/tournament-map";
 
 const POLL_INTERVAL_MS = Number(process.env.ODDSPAPI_POLL_INTERVAL_MS ?? 300_000);
 const BOOKMAKER = process.env.ODDSPAPI_BOOKMAKER ?? "pinnacle";
@@ -30,6 +31,11 @@ const TOURNAMENT_IDS = TOURNAMENT_IDS_RAW
   .map((s) => Number(s))
   .filter((n) => Number.isFinite(n));
 const DRY_RUN = process.env.ODDSPAPI_DRY_RUN === "1";
+
+// Derived once at module load. Used to give parsed fixtures a human-readable
+// league string ("MLB" instead of "tournament-109"). Static — adding a new
+// tournament means updating tournament-map.ts.
+const TOURNAMENT_LEAGUE = tournamentLeagueMap();
 
 function log(...args: unknown[]) {
   console.log(`[oddspapi-poll]`, ...args);
@@ -61,7 +67,10 @@ async function runOnce(state: RunState): Promise<void> {
     const fetchMs = Date.now() - t0;
     log(`poll #${poll} fetched in ${fetchMs}ms — shape: ${summarizeShape(body)}`);
 
-    const { fixtures, stats } = parseOddsResponse(body, { bookmaker: BOOKMAKER });
+    const { fixtures, stats } = parseOddsResponse(body, {
+      bookmaker: BOOKMAKER,
+      tournamentLeague: TOURNAMENT_LEAGUE,
+    });
     log(
       `poll #${poll} parsed — fixtures=${stats.fixturesParsed} markets=${stats.marketsParsed} (skipped=${stats.marketsSkipped}) outcomes=${stats.outcomesParsed} (skipped=${stats.outcomesSkipped})`,
     );

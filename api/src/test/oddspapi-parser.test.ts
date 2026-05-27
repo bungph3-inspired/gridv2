@@ -21,6 +21,7 @@ describe("parseOddsResponse — MLB live fixture", () => {
     expect(f.oddspapiEventId).toBe("id1300010963300131");
     expect(f.sport).toBe("baseball");
     expect(f.league).toBe("MLB");
+    expect(f.tournamentId).toBe(109);
     expect(f.participant1Id).toBe(3644);
     expect(f.participant2Id).toBe(3649);
     expect(f.status).toBe("open");
@@ -116,5 +117,14 @@ describe("parseOddsResponse — MLB live fixture", () => {
   test("league falls back to tournament-<id> when no mapping provided", () => {
     const { fixtures } = parseOddsResponse(SAMPLE); // no tournamentLeague opt
     expect(fixtures[0]!.league).toBe("tournament-109");
+  });
+
+  test("tournamentId is carried through regardless of tournamentLeague mapping", () => {
+    // With mapping
+    const a = parseOddsResponse(SAMPLE, { tournamentLeague: { 109: "MLB" } });
+    expect(a.fixtures[0]!.tournamentId).toBe(109);
+    // Without mapping — still populated from the raw response
+    const b = parseOddsResponse(SAMPLE);
+    expect(b.fixtures[0]!.tournamentId).toBe(109);
   });
 });
