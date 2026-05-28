@@ -63,7 +63,7 @@
 
   <!-- HEADER -->
   <header class="bet-header">
-    <a class="logo" href="/" style="text-decoration:none;color:inherit;">Bet<span>Sim</span></a>
+    <a class="logo" href="/" style="text-decoration:none;color:inherit;cursor:pointer;" onclick="event.preventDefault(); showHome(); return false;">Bet<span>Sim</span></a>
     <div class="hbadge">v2 · Tailwind</div>
     <div class="hapi">
       <div class="ldot off" id="ldot"></div>
@@ -89,6 +89,16 @@
       <button class="hbtn" id="logout-btn" onclick="logoutPlayer()">⎋ Logout</button>
     </div>
   </header>
+
+  <!-- HOME VIEW (Option C — league tiles landing) -->
+  <div id="home-view">
+    <div class="hv-hdr">Pick a sport</div>
+    <div id="home-tiles" class="hv-tiles"></div>
+    <div class="hv-foot">Lines powered by Pinnacle &middot; updated every 5 min</div>
+  </div>
+
+  <!-- BOARD VIEW (existing layout) -->
+  <div id="board-view" class="hidden">
 
   <!-- BET TYPE TABS -->
   <div class="bet-tabs">
@@ -207,6 +217,8 @@
       <button class="rv-confirm" onclick="confirmWagers()">CONFIRM →</button>
     </div>
   </div>
+
+  </div><!-- /board-view -->
 
 </div><!-- /app -->
 

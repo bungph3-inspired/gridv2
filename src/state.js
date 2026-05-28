@@ -154,6 +154,9 @@ export const state = {
 
   // ── ui ─────────────────────────────────────────────────
   wagerMode:    'straight',   // 'straight' | 'parlay' | 'teaser' | 'ifbet' | 'reverse'
+  // 'home' shows the league-tile landing; 'board' shows the odds board.
+  // Defaults to 'home' so fresh loads + reloads land on the picker.
+  view:         'home',
   activeLeague: 'NBA – Playoffs',
   // Alt-line chevrons are hidden by default; user opts in via Settings.
   // Gates the ▼ buttons on spread/total/teamtotal/prop cells across

@@ -891,6 +891,109 @@ function filterSport(sport) {
     }
   }
 }
+// ─── HOME VIEW (Option C — league tiles landing) ────────
+async function renderHomeTiles() {
+  const tilesEl = document.getElementById('home-tiles');
+  if (!tilesEl) return;
+  // Initial placeholders — show each sport with a loading dash
+  tilesEl.innerHTML = SPORT_CFG.map(sc => `
+    <button type="button" class="hv-tile" data-sport="${sc.key}" onclick="onHomeTileClick('${sc.key}')">
+      <div class="hv-tile-icon">${leagueIconHtml(sc.key, 28)}</div>
+      <div class="hv-tile-name">${sc.label}</div>
+      <div class="hv-tile-count">…</div>
+    </button>
+  `).join('');
+
+  // Fetch /tournaments per unique sportId in parallel
+  const uniqueSportIds = [...new Set(SPORT_CFG.map(s => s.sportId))];
+  let responses;
+  try {
+    responses = await Promise.all(uniqueSportIds.map(id =>
+      apiFetchHome(`/tournaments?sportId=${id}`).catch(() => [])
+    ));
+  } catch (e) {
+    SPORT_CFG.forEach(sc => updateHomeTile(sc.key, null, '—'));
+    return;
+  }
+  const tournamentsBySportId = {};
+  uniqueSportIds.forEach((id, i) => { tournamentsBySportId[id] = Array.isArray(responses[i]) ? responses[i] : []; });
+
+  SPORT_CFG.forEach(sc => {
+    const tournaments = tournamentsBySportId[sc.sportId] || [];
+    const active = tournaments.filter(t => (t.upcomingFixtures + t.liveFixtures) > 0);
+    let matched = null;
+    if (sc.tournamentId) matched = active.find(t => t.tournamentId === sc.tournamentId);
+    if (!matched && sc.tournamentMatch) matched = active.find(t => sc.tournamentMatch.test(t.tournamentName || ''));
+    if (!matched && !sc.tournamentId && !sc.tournamentMatch) {
+      matched = active.find(t => t.categorySlug === 'usa' || t.categoryName === 'USA');
+    }
+    const total = matched ? (matched.upcomingFixtures + matched.liveFixtures) : 0;
+    updateHomeTile(sc.key, total > 0, total > 0 ? `${total} ${total === 1 ? 'game' : 'games'}` : 'Off-season');
+  });
+}
+
+// Thin wrapper around api.js' BASE so the home page can call /tournaments
+// before the per-sport fetchOdds() flow runs. Uses the same auth (cookie).
+async function apiFetchHome(path) {
+  const res = await fetch(`${state.__BASE || ''}${path}`, { credentials: 'include' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+// Cache BASE on first call (state.js already exports it but not on state)
+import('./state.js').then(m => { state.__BASE = m.BASE; });
+
+function updateHomeTile(sportKey, isActive, countText) {
+  const tile = document.querySelector(`.hv-tile[data-sport="${sportKey}"]`);
+  if (!tile) return;
+  const countEl = tile.querySelector('.hv-tile-count');
+  if (countEl) countEl.textContent = countText;
+  if (isActive) {
+    tile.classList.remove('hv-tile-off');
+    tile.disabled = false;
+  } else {
+    tile.classList.add('hv-tile-off');
+    tile.disabled = true;
+  }
+}
+
+function onHomeTileClick(sportKey) {
+  const sc = SPORT_CFG.find(s => s.key === sportKey);
+  if (!sc) return;
+  // First sidebar label matching this sport becomes the active league.
+  const firstLeague = LEAGUES_LIST.find(l => l.sport === sportKey);
+  if (firstLeague) {
+    state.activeLeague = firstLeague.name;
+    const bt = document.getElementById('board-title');
+    if (bt) bt.textContent = firstLeague.name;
+  }
+  showBoard();
+  // Re-render sidebar + fetch this sport
+  renderSidebar();
+  setMode('straight');
+  fetchAndRender(sportKey, true);
+  startAuto();
+}
+
+function showHome() {
+  state.view = 'home';
+  // Stop the board's auto-refresh while we're on home
+  if (state.autoTimer) { clearInterval(state.autoTimer); state.autoTimer = null; }
+  if (state.cdownTimer) { clearInterval(state.cdownTimer); state.cdownTimer = null; }
+  const hv = document.getElementById('home-view');
+  const bv = document.getElementById('board-view');
+  if (hv) hv.classList.remove('hidden');
+  if (bv) bv.classList.add('hidden');
+  renderHomeTiles();
+}
+
+function showBoard() {
+  state.view = 'board';
+  const hv = document.getElementById('home-view');
+  const bv = document.getElementById('board-view');
+  if (hv) hv.classList.add('hidden');
+  if (bv) bv.classList.remove('hidden');
+}
+
 setApiHooks({ renderBoard, showBoardMsg, showToast });
 setBetsHooks({ renderBoard, buildGameBlock, showBoardMsg, showToast, updateBalDisp, buildAltChevron });
 function init() {
@@ -903,9 +1006,14 @@ function init() {
   setAccountDisp(pid);
   updateBalDisp();
   updateBetsBtn();
+  setOnline(true);
+  // PR19: branch on view. Default + reload → home (tiles). Tile click → board.
+  if (state.view === 'home') {
+    showHome();
+    return;
+  }
   renderSidebar();
   setMode("straight");
-  setOnline(true);
   fetchAndRender(getActiveSportKey());
   startAuto();
 }
@@ -929,11 +1037,10 @@ function submitPlayerLogin(e){
   setAccountDisp(id);
   updateBalDisp();
   updateBetsBtn();
-  renderSidebar();
-  setMode('straight');
   setOnline(true);
-  fetchAndRender(getActiveSportKey());
-  startAuto();
+  // Land on the home picker after fresh login.
+  state.view = 'home';
+  showHome();
   return false;
 }
 function logoutPlayer(){
@@ -947,6 +1054,9 @@ function setAccountDisp(id){
 }
 
 Object.assign(window, {
+  showHome,
+  showBoard,
+  onHomeTileClick,
   setMode,
   onContinue,
   closeReview,
