@@ -12,6 +12,7 @@
 
 import { state, SPORT_CFG, BASE, AUTO_MS } from './state.js';
 import { ensureSign, fmtLine, fmtTotalLine } from './utils.js';
+import { lookupTeamByAbbr } from './teams.js';
 
 // Forward-declared imports from other modules — set later via setRenderHooks.
 // This avoids a circular import: api.js → render functions live in main.js
@@ -196,6 +197,11 @@ export function normalizeGames(data, label, sportKey) {
 
     const p1name = state.participantCache[ev.participant1Id] || `Team ${ev.participant1Id}`;
     const p2name = state.participantCache[ev.participant2Id] || `Team ${ev.participant2Id}`;
+    // PR10: derive full team names from teams.js TEAM_DATA via reverse lookup
+    // on the abbr the proxy returned. Falls back to the abbr if the league
+    // isn't in TEAM_DATA (NCAA*) or the team isn't mapped — same as today.
+    const p1full = lookupTeamByAbbr(sportKey, p1name)?.fullName || p1name;
+    const p2full = lookupTeamByAbbr(sportKey, p2name)?.fullName || p2name;
 
     // Find main markets by joining odds keys with metadata catalog.
     // Filter: period='result' (full game), marketLength=2 (binary outcome), not playerProp.
@@ -350,10 +356,14 @@ export function normalizeGames(data, label, sportKey) {
       date: gt.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}),
       time: gt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'}),
       home: p1name, away: p2name,
+      // PR10: *Full mirrors home/away for display on the board (full names).
+      // home/away themselves stay as abbrs so the betslip's matchup string
+      // (constructed at slip-push time from game.away/home) remains compact.
+      homeFull: p1full, awayFull: p2full,
       props: normalizeProps(ev.fixtureId, p1name, p2name),
       teams: [
         // Away team (p2)
-        { name:p2name, abbr:p2name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase(),
+        { name:p2name, abbr:p2name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase(), fullName: p2full,
           spread: spP2Line, spVig: ensureSign(spP2Vig),
           ml: ensureSign(mlP2),
           total: totLine?('o'+totLine):'', totVig: ensureSign(totOverVig),
@@ -363,7 +373,7 @@ export function normalizeGames(data, label, sportKey) {
           altTT:      altTT2,      // away team's own total OVER variants
         },
         // Home team (p1)
-        { name:p1name, abbr:p1name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase(),
+        { name:p1name, abbr:p1name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase(), fullName: p1full,
           spread: spP1Line, spVig: ensureSign(spP1Vig),
           ml: ensureSign(mlP1),
           total: totLine?('u'+totLine):'', totVig: ensureSign(totUnderVig),

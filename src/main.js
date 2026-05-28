@@ -129,7 +129,7 @@ function buildGameBlock(game,moved=new Map()){
     const awaySeed=m.seedAway?`<span class="gseed">#${m.seedAway}</span>`:'';
     const homeSeed=m.seedHome?`<span class="gseed">#${m.seedHome}</span>`:'';
     const netHtml=m.network?`<span class="gnet">(${escapeHtml(m.network)})</span>`:'';
-    const descHtml=`<span class="gdesc">${awaySeed}${escapeHtml(game.away)}<span class="vs">vs</span>${homeSeed}${escapeHtml(game.home)}${netHtml}</span>`;
+    const descHtml=`<span class="gdesc">${awaySeed}${escapeHtml(game.awayFull||game.away)}<span class="vs">vs</span>${homeSeed}${escapeHtml(game.homeFull||game.home)}${netHtml}</span>`;
     const seriesHtml=m.series?`<span class="gseries">${escapeHtml(m.series)}</span>`:'';
     const maxWHtml=m.maxWager?`<span class="gmaxw">Max ${fmtUSD(m.maxWager)}</span>`:'';
     const metaHtml=(seriesHtml||maxWHtml)?`<span class="ginfo-meta">${seriesHtml}${maxWHtml}</span>`:'';
@@ -145,7 +145,7 @@ function buildGameBlock(game,moved=new Map()){
     game.teams.forEach(team=>{
       const row=document.createElement('div');row.className='trow-g';
       const logo=teamLogoImg(game.sport, team, 'tlogo');
-      row.innerHTML=`<div class="tname-g">${logo}${escapeHtml(team.name)}</div>`;
+      row.innerHTML=`<div class="tname-g">${logo}${escapeHtml(team.fullName||team.name)}</div>`;
       if(state.wagerMode==='teaser' && state.teaserVariant){
         // Teaser: only Spread + Total are eligible; ML and TT are empty
         row.appendChild(buildTeaserCell(game,team,'spread',team.spread,block,game));

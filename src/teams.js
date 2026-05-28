@@ -189,6 +189,34 @@ export function lookupTeam(sport, name) {
   return _byKey.get(`${sport}|${String(name).toLowerCase()}`) || null;
 }
 
+// Reverse index: keyed by `${league}|${abbr.toUpperCase()}` → { fullName, slug, league }.
+// First-write-wins so when multiple aliases share an abbr the canonical
+// (first-listed in TEAM_DATA) full name wins. Examples:
+//   STL → "St. Louis Cardinals" (first), not "St Louis Cardinals" (alias)
+//   OAK → "Oakland Athletics" (first), not "Athletics" (alias)
+//   UTA → "Utah Jazz" (NBA) / "Utah Hockey Club" (NHL) — disambiguated by league
+const _byAbbr = (() => {
+  const m = new Map();
+  for (const [league, rows] of Object.entries(TEAM_DATA)) {
+    const leagueLower = league.toLowerCase();
+    for (const [name, slug, abbr] of rows) {
+      const key = `${league}|${String(abbr).toUpperCase()}`;
+      if (!m.has(key)) m.set(key, { fullName: name, slug, league: leagueLower });
+    }
+  }
+  return m;
+})();
+
+// Inverse of lookupTeam: given the ESPN 3-letter abbr the proxy's
+// /participants endpoint emits, return the canonical full team name for
+// display on the board ("CHC" → "Chicago Cubs"). Returns { fullName, slug,
+// league } or null. NCAAB / NCAAF / unknown leagues fall through to null;
+// callers should fall back to the raw abbr in that case.
+export function lookupTeamByAbbr(sport, abbr) {
+  if (!sport || !abbr) return null;
+  return _byAbbr.get(`${sport}|${String(abbr).toUpperCase()}`) || null;
+}
+
 // Generate the same 3-letter initials the original code used, as a final
 // fallback when a team isn't in our mapping (e.g. NCAA).
 function initialsOf(name) {
