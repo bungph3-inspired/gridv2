@@ -46,7 +46,7 @@ Sessions 2026-05-23 cont 2/3/4 scaffolded the runbook + executed Phases A/B/C co
 - ~~A.8 commit through protected-main PR~~ — **DONE 2026-05-25 cont** (PR #8 squash-merged as commit `3d7cfad` — previous session's "merged" claim was wrong, see correction below)
 - ~~VPS-side Phase A walkthrough~~ — **DONE 2026-05-25 cont** (migration applied, MASTER seeded as Pisa id=1, password cleared from env, `/health` 200 stable)
 - ~~Phase B/C end-to-end smoke against prod~~ — **DONE 2026-05-25 cont 2** (all 6 surfaces green on both localhost + api.azuresb.com; see entry below)
-- D.5 401 interceptor (currently stale-cookie 401 bubbles as console error not redirect)
+- ~~D.5 401 interceptor~~ — **DONE 2026-05-28** (PR #29 squash-merged as commit `f0bcc30` — adds 401 interceptor in src/api.js that redirects to /agent.html?expired=1 instead of bubbling as console error)
 - ~~D.6 `verify_agent.cjs` update~~ — **DONE 2026-05-25 (already in tree from recovery, 6/6 verify pass)**
 - ~~D.7 commit Phase D as PR~~ — **DONE 2026-05-25 (PR #7 squash-merged)**
 - Phase E integration tests + manual e2e
@@ -219,3 +219,44 @@ Investigating the "app stdout missing from journald" thread revealed `gridv2.ser
 - The `gridv2` user has no sudo. `ssh root@VPS` directly for any system admin work. New memory: `[[reference_gridv2_vps_ssh_users]]`.
 
 **Follow-up filed:** agent fleet logs at `/var/log/gridv2/agent-YYYY-MM-DD.log` self-rotate via date-stamped filenames but never get deleted. Add `find -mtime +30 -delete` cron or extend the logrotate stanza with daterotate/dateformat. Low urgency (~9 KB total).
+## 2026-05-28 — Tournament wiring (NBA + WNBA) + token rotation + doc preempt
+
+**4 PRs squash-merged to main (PR # → repo PR # → commit):**
+
+| Session PR | Repo PR | Commit | Title |
+|---|---|---|---|
+| PR11 | #32 | `07c52d4` | strip dead `state.apiKey` paths + remove unreachable 'key' splash |
+| PR12 | #33 | `c29f00a` | NBA + WNBA backend (participants maps + TOURNAMENT_MAP + PARTICIPANTS_BY_SPORT merge) |
+| PR13 | #34 | `fd3406f` | WNBA frontend (SPORT_CFG, LEAGUES_LIST, getActiveSportKey, teams.js) + bonus `startAuto` fix |
+| PR15 | #35 | `c33bef7` | `runbooks/10-add-league.md` (preempt — closes Tournament wiring umbrella) |
+
+**VPS-side changes (no PR; deploy steps):**
+- Fleet `GH_TOKEN` rotated. Old PAT leaked via `git push -u "https://x-access-token:$TOKEN@github.com/..."` — the `-u` flag persisted the token URL to `.git/config` AND git's success line printed it. New PAT generated, env file updated, `.git/config` scrubbed (5 branch URLs across pr7/pr8/pr9/pr10/pr11), old PAT revoked before rotation.
+- `/etc/gridv2/env`: appended `ODDSPAPI_TOURNAMENT_IDS=109,132,486` (NBA + WNBA + existing MLB).
+- `/etc/systemd/system/gridv2-oddspapi.service`: **removed** `Environment=ODDSPAPI_TOURNAMENT_IDS=109` override — it was shadowing the env file. Env file is now single source of truth.
+- main pulled, `api/` rebuilt (`unset NODE_ENV && npm ci && npm run build`), both services restarted.
+- First poll confirmed: `[oddspapi-poll] starting — tournamentIds=[109,132,486]` → `poll #1 fixtures=19 markets=615 prices=1230 (total 1079ms)`.
+
+**Live state (post-deploy, 2026-05-28 PT):**
+- `app.azuresb.com` sidebar shows NBA + WNBA labels (PR #34 Cloudflare Pages auto-build).
+- DB has rows for tournament_id 109 (MLB), 132 (NBA), 486 (WNBA).
+- Active fixtures at probe time: 1 NBA (OKC vs SAS), 2 WNBA (DAL/IND, LV/GSV).
+
+**New memory saved:**
+- `[[feedback_scan_script_output_tokens]]` — **CRITICAL** — John's "run script → paste output to Claude" workflow leaks PATs when scripts use `git push -u <url-with-token>`. Scan paste output for `github_pat_` / `:x-access-token:` before sending. Claude side: never use `-u` with URL-embedded tokens; pipe `2>&1 | grep -v 'x-access-token'` or use a credential helper.
+
+**Threads closed this session:**
+- D.5 401 interceptor (earlier session) → strike-noted above
+- Tournament wiring (NBA / NHL / NCAA umbrella) → done. Active leagues wired (NBA + WNBA). Offseason leagues (NHL, NCAAB, NCAAF, NFL) deferred until in-season per `runbooks/10-add-league.md` checklist.
+
+**Follow-ups (queued for next session):**
+- **Logo PNGs** — `scripts/fetch_logos.py` for the 12 new MLB teams (PR10 carryover) + 13 new WNBA teams (PR13). Until then board renders with monogram fallback (clean — no broken images).
+- **`BS_GAME_META` purge or rewire** — entries are stale NBA demo data ("Los Angeles Lakers @ Oklahoma City Thunder" with hardcoded series state "OKC leads 2-1"). Matches are now participant-driven, so the demo data is dead noise. Either delete the static map or replace with real per-fixture meta from a future API.
+- **Player account creation + end-to-end smoke** (started this session, continues separately).
+
+**Lessons captured (memory + this doc):**
+1. Memory: paste-output token leaks. See `[[feedback_scan_script_output_tokens]]`.
+2. Runbook 10: end-to-end checklist for the next league wiring. Future NHL/NCAA/NFL work is a ~30-min checklist.
+3. `gridv2-oddspapi.service` is a **separate** systemd unit from `gridv2.service` — restarting the API alone doesn't pick up new tournament IDs. Both services need restart on backend changes.
+4. `Environment=` in systemd unit overrides `EnvironmentFile=`. Now resolved by removing the unit override.
+5. `NODE_ENV=production` in `/etc/gridv2/env` causes `npm ci` to skip devDeps (drizzle-kit, tsc). Always `unset NODE_ENV` before building.
