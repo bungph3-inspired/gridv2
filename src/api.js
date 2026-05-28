@@ -52,16 +52,25 @@ export function mockResolve(path) {
 // fetch (including cross-origin when prod app.azuresb.com hits
 // api.azuresb.com).
 //
-// 401 handling: the proxy returns 401 if the session expired. Today we let
-// that bubble up as a thrown error which fetchAndRender catches and surfaces
-// as Offline. A future PR can add a 401-to-login-redirect interceptor here
-// the way agent.js does on its own apiFetch.
+// PR8 (D.5): 401 -> /agent.html?expired=1. The proxy returns 401 when the
+// agent session cookie is missing/stale. /agent.html is the only real auth
+// surface (the index.html player splash is fake legacy). _redirecting401
+// guards against parallel polls firing redundant navigations during the
+// brief window before the browser actually unloads the page.
+let _redirecting401 = false;
 export async function apiFetch(path) {
   if (state.mockMode && window.MOCK_DATA) {
     const r = mockResolve(path);
     if (r !== undefined) return Promise.resolve(r);
   }
   const res = await fetch(`${BASE}${path}`, { credentials: 'include' });
+  if (res.status === 401) {
+    if (!_redirecting401) {
+      _redirecting401 = true;
+      location.replace('/agent.html?expired=1');
+    }
+    throw new Error('Session expired');
+  }
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error?.message || e.error || `HTTP ${res.status}`);

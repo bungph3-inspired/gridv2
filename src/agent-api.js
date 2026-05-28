@@ -30,8 +30,14 @@ export function apiBase() {
     : '';
 }
 
+// PR8 (D.5): post-auth 401 -> /agent.html?expired=1. Gated on getMe() so the
+// boot-time /api/me probe and the /api/login POST don't trigger redirects —
+// neither calls setMe before they may receive a 401, so getMe() returns null
+// in those paths and the response just falls through to the caller normally.
+// _redirecting401 guards against parallel calls firing redundant navigations.
+let _redirecting401 = false;
 export async function apiFetch(path, opts = {}) {
-  return fetch(apiBase() + path, {
+  const res = await fetch(apiBase() + path, {
     ...opts,
     credentials: 'include',
     headers: {
@@ -39,4 +45,10 @@ export async function apiFetch(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
+  if (res.status === 401 && getMe() && !_redirecting401) {
+    _redirecting401 = true;
+    setMe(null);
+    location.replace('/agent.html?expired=1');
+  }
+  return res;
 }
