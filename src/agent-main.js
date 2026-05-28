@@ -22,6 +22,14 @@ import { initAgent } from './agent.js';
 import { apiFetch, getMe, setMe } from './agent-api.js';
 
 async function boot() {
+  // PR8 (D.5): when redirected here from a 401 elsewhere (via ?expired=1),
+  // surface a friendly "session expired" message in the splash error slot.
+  // Set BEFORE the /api/me fetch so it shows even if the server is reachable
+  // and the cookie has been cleared.
+  if (new URLSearchParams(location.search).get('expired') === '1') {
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.textContent = 'Your session expired. Please sign in again.';
+  }
   // Try to resume an existing session. If the server says we're authed,
   // skip the splash entirely and render the dashboard.
   try {
