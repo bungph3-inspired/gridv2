@@ -85,8 +85,7 @@ function renderSidebar(){
 function showBoardMsg(type,msg=''){
   const b=document.getElementById('board');
   if(type==='load') b.innerHTML=`<div class="ldstate"><div class="spinner"></div><div>Fetching live odds…</div></div>`;
-  else if(type==='err') b.innerHTML=`<div class="errstate"><div style="font-size:36px">📡</div><div class="errmsg">Could not load odds</div><div class="errhint">${msg||'Check your API key in ⚙ Settings.'}</div><button class="retrybtn" onclick="manualRefresh()">Retry</button></div>`;
-  else if(type==='key') b.innerHTML=`<div class="errstate"><div style="font-size:36px">🔑</div><div class="errmsg">API Key Required</div><div class="errhint">Click ⚙ Settings in the header to add your free key from the-odds-api.com</div></div>`;
+  else if(type==='err') b.innerHTML=`<div class="errstate"><div style="font-size:36px">📡</div><div class="errmsg">Could not load odds</div><div class="errhint">${msg||"Couldn't reach the odds service. Try again in a moment."}</div><button class="retrybtn" onclick="manualRefresh()">Retry</button></div>`;
 }
 
 function renderBoard(moved=new Map()){
@@ -835,7 +834,7 @@ function toggleMockMode() {
   state.mockMode = cbx.checked;
   localStorage.setItem("bs_mock", state.mockMode ? "1" : "0");
   state.gamesCache = {};
-  setOnline(state.mockMode || !!state.apiKey);
+  setOnline(true);
   fetchAndRender();
   showToast(state.mockMode ? "Mock Mode ON" : "Mock Mode OFF");
 }
@@ -906,13 +905,9 @@ function init() {
   updateBetsBtn();
   renderSidebar();
   setMode("straight");
-  setOnline(state.mockMode || !!state.apiKey);
-  if (state.mockMode || state.apiKey) {
-    fetchAndRender(getActiveSportKey());
-    startAuto();
-  } else {
-    showBoardMsg("key");
-  }
+  setOnline(true);
+  fetchAndRender(getActiveSportKey());
+  startAuto();
 }
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init);
@@ -936,13 +931,9 @@ function submitPlayerLogin(e){
   updateBetsBtn();
   renderSidebar();
   setMode('straight');
-  setOnline(state.mockMode || !!state.apiKey);
-  if (state.mockMode || state.apiKey) {
-    fetchAndRender(getActiveSportKey());
-    startAuto();
-  } else {
-    showBoardMsg('key');
-  }
+  setOnline(true);
+  fetchAndRender(getActiveSportKey());
+  startAuto();
   return false;
 }
 function logoutPlayer(){
