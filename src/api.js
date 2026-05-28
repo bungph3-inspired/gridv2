@@ -197,12 +197,17 @@ export function normalizeGames(data, label, sportKey) {
     //   teamtotals-team1 → participant1 (= HOME team) own total
     //   teamtotals-team2 → participant2 (= AWAY team) own total
     //   Each market's outcome[0] is OVER, outcome[1] is UNDER for that team's total.
-    let mlMkt=null, spMkt=null, spMeta=null, totMkt=null, totMeta=null;
-    let tt1Mkt=null, tt1Meta=null, tt2Mkt=null, tt2Meta=null;
+    let mlMkt=null;
     // Team-total fallback: DraftKings doesn't always set mainLine=true on team-totals
     // (reliable for spreads/totals but spotty for teamtotals in observed fixtures).
     // Track a fallback per side so we surface *something* when no flagged main exists.
     let tt1Fb=null, tt2Fb=null;
+    // mainLine=true candidate buckets — OddsPapi occasionally flags multiple
+    // handicap variants as mainLine=true on the same market (observed: a 0-line
+    // spread + a 0.5 total flagged alongside the real main line). After the
+    // scan we pick the variant with the largest |handicap| since pick'em /
+    // sub-1 variants are bookkeeping artifacts, not the board line.
+    const spMainCands=[], totMainCands=[], tt1MainCands=[], tt2MainCands=[];
     // Alt-line variants: collect EVERY handicap variant per market type, not just
     // the mainLine. Bucket 3 (alt lines / props) uses these to power the popover.
     // Each entry: {market, meta} — same shape as the main pick. We sort + format
@@ -219,20 +224,35 @@ export function normalizeGames(data, label, sportKey) {
         mlMkt = {market:m, meta:md};
       } else if (md.marketType === 'spreads') {
         spAll.push({market:m, meta:md});
-        if (p1.mainLine === true && !spMkt) { spMkt = {market:m, meta:md}; spMeta = md; }
+        if (p1.mainLine === true) spMainCands.push({market:m, meta:md});
       } else if (md.marketType === 'totals') {
         totAll.push({market:m, meta:md});
-        if (p1.mainLine === true && !totMkt) { totMkt = {market:m, meta:md}; totMeta = md; }
+        if (p1.mainLine === true) totMainCands.push({market:m, meta:md});
       } else if (md.marketType === 'teamtotals-team1') {
         tt1All.push({market:m, meta:md});
-        if (p1.mainLine === true && !tt1Mkt) { tt1Mkt = {market:m, meta:md}; tt1Meta = md; }
+        if (p1.mainLine === true) tt1MainCands.push({market:m, meta:md});
         else if (!tt1Fb) { tt1Fb = {market:m, meta:md}; }
       } else if (md.marketType === 'teamtotals-team2') {
         tt2All.push({market:m, meta:md});
-        if (p1.mainLine === true && !tt2Mkt) { tt2Mkt = {market:m, meta:md}; tt2Meta = md; }
+        if (p1.mainLine === true) tt2MainCands.push({market:m, meta:md});
         else if (!tt2Fb) { tt2Fb = {market:m, meta:md}; }
       }
     }
+    // Pick the largest-|handicap| candidate from each mainLine bucket. Reduces
+    // gracefully — empty bucket → null, single candidate → that one (no behaviour
+    // change), multiple → furthest from zero. Fixes the 0-line + 0.5-total
+    // display bug where first-mainLine-wins selected vestigial variants.
+    const pickMaxAbsHc = arr => arr.length
+      ? arr.reduce((a,b) => Math.abs(parseFloat(b.meta.handicap)) > Math.abs(parseFloat(a.meta.handicap)) ? b : a)
+      : null;
+    let spMkt  = pickMaxAbsHc(spMainCands);
+    let totMkt = pickMaxAbsHc(totMainCands);
+    let tt1Mkt = pickMaxAbsHc(tt1MainCands);
+    let tt2Mkt = pickMaxAbsHc(tt2MainCands);
+    let spMeta  = spMkt?.meta  || null;
+    let totMeta = totMkt?.meta || null;
+    let tt1Meta = tt1Mkt?.meta || null;
+    let tt2Meta = tt2Mkt?.meta || null;
     // Apply team-total fallbacks when no flagged-main was found
     if (!tt1Mkt && tt1Fb) { tt1Mkt = tt1Fb; tt1Meta = tt1Fb.meta; }
     if (!tt2Mkt && tt2Fb) { tt2Mkt = tt2Fb; tt2Meta = tt2Fb.meta; }
