@@ -787,8 +787,6 @@ function onPropClick(game, prop, side, key, btnEl) {
   btnEl.classList.toggle("sel");
 }
 function openSettings() {
-  const inp = document.getElementById("api-key-inp");
-  if (inp) inp.value = state.apiKey || "";
   const sel = document.getElementById("book-sel");
   if (sel) sel.value = state.prefBook;
   const cbx = document.getElementById("mock-cbx");
@@ -818,20 +816,6 @@ function openSettings() {
 }
 function closeSettings() {
   document.getElementById("set-overlay").classList.remove("open");
-}
-function saveApiKey() {
-  const v = document.getElementById("api-key-inp").value.trim();
-  state.apiKey = v;
-  localStorage.setItem("bs_key", v);
-  if (v) {
-    setOnline(true);
-    showToast("API key saved");
-    fetchAndRender();
-  } else {
-    setOnline(false);
-    showToast("API key cleared");
-  }
-  closeSettings();
 }
 function saveBook() {
   state.prefBook = document.getElementById("book-sel").value;
@@ -1000,7 +984,6 @@ Object.assign(window, {
   settleBet,
   openSettings,
   closeSettings,
-  saveApiKey,
   saveBook,
   resetBalance,
   toggleMockMode,
