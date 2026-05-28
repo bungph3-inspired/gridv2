@@ -27,9 +27,23 @@ export const TOURNAMENT_MAP: Record<number, TournamentMeta> = {
     categorySlug: "usa",
     categoryName: "USA",
   },
-  // Future entries (NBA, NFL, NHL, NCAAB, NCAAF) get added as we expand
-  // coverage. Each should be confirmed against an OddsPapi sample before
-  // committing — the upstream IDs are stable but easy to mis-paste.
+  132: {
+    sportId: 11, // basketball
+    tournamentName: "NBA",
+    league: "NBA",
+    categorySlug: "usa",
+    categoryName: "USA",
+  },
+  486: {
+    sportId: 11, // basketball (shares sportId with NBA)
+    tournamentName: "WNBA",
+    league: "WNBA",
+    categorySlug: "usa",
+    categoryName: "USA",
+  },
+  // Future entries (NHL, NCAAB, NCAAF, NFL) get added as those leagues come
+  // back in season. See projects/GridV2/docs/league-wiring-procedure.md for
+  // the discovery + wiring checklist.
 };
 
 /**
