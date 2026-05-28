@@ -28,6 +28,7 @@ import { apiBase } from './agent-api.js';
 // (regex) disambiguates which tournament to pick when several share a sportId.
 export const SPORT_CFG = [
   { key:'NBA',   label:'NBA',   sportId:11, tournamentId:132 },
+  { key:'WNBA',  label:'WNBA',  sportId:11, tournamentId:486 },
   { key:'MLB',   label:'MLB',   sportId:13, tournamentId:null },
   { key:'NHL',   label:'NHL',   sportId:15, tournamentId:null },
   { key:'NFL',   label:'NFL',   sportId:14, tournamentId:null },
@@ -86,6 +87,7 @@ export const teaserPayout = (variant, n) => variant.payouts && variant.payouts[n
 export const LEAGUES_LIST = [
   {sport:'NBA',name:'NBA – Playoffs'},{sport:'NBA',name:'NBA – Series'},
   {sport:'NBA',name:'NBA 1st Half'},{sport:'NBA',name:'NBA Player Props'},
+  {sport:'WNBA',name:'WNBA – Regular Season'},{sport:'WNBA',name:'WNBA – Playoffs'},
   {sport:'MLB',name:'MLB'},{sport:'MLB',name:'MLB 1st 5 Innings'},
   {sport:'MLB',name:'MLB – Props'},{sport:'MLB',name:'MLB – Alternate Lines'},
   {sport:'NHL',name:'NHL – Playoffs'},{sport:'NHL',name:'NHL – Stanley Cup'},
