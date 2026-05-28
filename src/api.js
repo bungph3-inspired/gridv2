@@ -444,6 +444,7 @@ export function getActiveSportKey(){
   // (more specific) so "NCAAB" doesn't accidentally match the "NBA" prefix.
   if(state.activeLeague.startsWith('NCAAB')) return 'NCAAB';
   if(state.activeLeague.startsWith('NCAAF')) return 'NCAAF';
+  if(state.activeLeague.startsWith('WNBA')) return 'WNBA';
   if(state.activeLeague.startsWith('NBA')) return 'NBA';
   if(state.activeLeague.startsWith('MLB')) return 'MLB';
   if(state.activeLeague.startsWith('NHL')) return 'NHL';
@@ -460,7 +461,14 @@ export function startAuto(){
     document.getElementById('auto-timer').textContent=` | Auto: ${m}:${s}`;
     if(state.cdownSec<=0) state.cdownSec=AUTO_MS/1000;
   },1000);
-  state.autoTimer=setInterval(()=>{ fetchAndRender('NBA',false); setTimeout(()=>fetchAndRender('MLB',false),1500); },AUTO_MS);
+  state.autoTimer=setInterval(()=>{
+    const active=getActiveSportKey();
+    // Always refresh the user's active sport so the board stays current
+    fetchAndRender(active,false);
+    // Background warm for NBA + MLB so league switches feel instant
+    if (active!=='NBA') setTimeout(()=>fetchAndRender('NBA',false),1500);
+    if (active!=='MLB') setTimeout(()=>fetchAndRender('MLB',false),3000);
+  },AUTO_MS);
 }
 export function resetAuto(){clearInterval(state.autoTimer);clearInterval(state.cdownTimer);startAuto();}
 

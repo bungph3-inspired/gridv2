@@ -61,6 +61,22 @@ const TEAM_DATA = {
     ["Utah Jazz", "utah", "UTA"],
     ["Washington Wizards", "wsh", "WAS"],
   ],
+  WNBA: [
+    ["Atlanta Dream", "atl", "ATL"],
+    ["Chicago Sky", "chi", "CHI"],
+    ["Connecticut Sun", "conn", "CON"],
+    ["Dallas Wings", "dal", "DAL"],
+    ["Golden State Valkyries", "gsv", "GSV"],
+    ["Indiana Fever", "ind", "IND"],
+    ["Las Vegas Aces", "lv", "LV"],
+    ["Los Angeles Sparks", "la", "LA"],
+    ["LA Sparks", "la", "LA"],
+    ["Minnesota Lynx", "min", "MIN"],
+    ["New York Liberty", "ny", "NY"],
+    ["Phoenix Mercury", "phx", "PHX"],
+    ["Seattle Storm", "sea", "SEA"],
+    ["Washington Mystics", "wsh", "WAS"],
+  ],
   NFL: [
     ["Arizona Cardinals", "ari", "ARI"],
     ["Atlanta Falcons", "atl", "ATL"],
@@ -298,6 +314,7 @@ const _PUCK = `<ellipse cx="12" cy="14.5" rx="8" ry="2.5" fill="currentColor" op
 
 const LEAGUE_ICONS = {
   NBA:   _BASKETBALL,
+  WNBA:  _BASKETBALL,
   NCAAB: _BASKETBALL,
   NFL:   _FOOTBALL,
   NCAAF: _FOOTBALL,
