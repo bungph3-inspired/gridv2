@@ -254,7 +254,7 @@ const VARIANT_CLASS = {
 export function teamLogoImg(sport, team, variant = "tlogo") {
   if (!team) return "";
   const cls = VARIANT_CLASS[variant] || VARIANT_CLASS.tlogo;
-  const found = lookupTeam(sport, team.name);
+  const found = lookupTeamByAbbr(sport, team.name);
   const mono = escapeHtml((found?.abbr) || team.abbr || initialsOf(team.name));
   if (!found) {
     // No mapping → render the monogram directly (no img, no failed network round-trip).
