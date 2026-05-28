@@ -1730,3 +1730,6 @@
   .ag-sa-indent            { @apply text-bet-text-sm font-mono; }
   .ag-sa-when              { @apply font-mono text-xs text-bet-text-sm; }
 }
+
+/* PR17 — bolder + darker juice for better readability */
+.ovig { font-weight: 500; color: #374151; }
