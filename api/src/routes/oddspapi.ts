@@ -18,6 +18,8 @@ import { db } from "../db/client";
 import { fixtures, markets } from "../db/schema";
 import { TOURNAMENT_MAP } from "../data/tournament-map";
 import { MLB_PARTICIPANTS } from "../data/mlb-participants";
+import { NBA_PARTICIPANTS } from "../data/nba-participants";
+import { WNBA_PARTICIPANTS } from "../data/wnba-participants";
 import {
   marketName,
   normalizeLine,
@@ -57,6 +59,11 @@ function statusToId(status: string): number {
 // Per-sport participant maps. Only baseball has coverage in PR2; other sports
 // fall through to all-fallback responses until their maps land.
 const PARTICIPANTS_BY_SPORT: Record<number, Record<number, string>> = {
+  // Basketball: NBA (tournament 132) + WNBA (tournament 486) share sportId 11.
+  // Participant IDs are globally unique within OddsPapi, so spread-merge is
+  // safe — no collisions. ESPN-style abbrs *can* overlap (ATL Hawks vs
+  // ATL Dream); the frontend disambiguates by active sport.
+  11: { ...NBA_PARTICIPANTS, ...WNBA_PARTICIPANTS },
   13: MLB_PARTICIPANTS,
 };
 
