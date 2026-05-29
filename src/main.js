@@ -21,8 +21,7 @@ import './style.css';
 
 import {
   state,
-  SPORT_CFG, LEAGUES_LIST, BS_GAME_META,
-  getGameMeta,
+  SPORT_CFG, LEAGUES_LIST,
 } from './state.js';
 import { fmtUSD, escapeHtml } from './utils.js';
 import { teamLogoImg, leagueIconHtml } from './teams.js';
@@ -119,27 +118,16 @@ function buildGameBlock(game,moved=new Map()){
   // matchup context, so we skip ginfo / ginjury / .trow-g rows on this view.
   const propsOnly = /Player Props$/i.test(state.activeLeague || '');
   if (!propsOnly) {
-    // game info row (with optional enriched meta)
-    const m=getGameMeta(game);
+    // Game info row — time + team names. Optional per-game meta (badges,
+    // seeds, network, series state, max wager, injury sub-row) was removed
+    // in PR23 when the stale demo data was purged. The CSS classes for
+    // those elements remain in style.css as dead — re-introduce them with
+    // a real meta source if needed.
     const info=document.createElement('div');info.className='ginfo';
     const timeHtml=`<span class="gtime-lbl${game.isLive?' live':''}">${game.isLive?'● LIVE':escapeHtml(game.time)}</span>`;
-    const isPlayoffs=m.badge && /playoff|finals|conference|championship/i.test(m.badge);
-    const badgeHtml=m.badge?`<span class="gbadge${isPlayoffs?'':' alt'}">${escapeHtml(m.badge)}</span>`:'';
-    const awaySeed=m.seedAway?`<span class="gseed">#${m.seedAway}</span>`:'';
-    const homeSeed=m.seedHome?`<span class="gseed">#${m.seedHome}</span>`:'';
-    const netHtml=m.network?`<span class="gnet">(${escapeHtml(m.network)})</span>`:'';
-    const descHtml=`<span class="gdesc">${awaySeed}${escapeHtml(game.awayFull||game.away)}<span class="vs">vs</span>${homeSeed}${escapeHtml(game.homeFull||game.home)}${netHtml}</span>`;
-    const seriesHtml=m.series?`<span class="gseries">${escapeHtml(m.series)}</span>`:'';
-    const maxWHtml=m.maxWager?`<span class="gmaxw">Max ${fmtUSD(m.maxWager)}</span>`:'';
-    const metaHtml=(seriesHtml||maxWHtml)?`<span class="ginfo-meta">${seriesHtml}${maxWHtml}</span>`:'';
-    info.innerHTML=`${timeHtml}${badgeHtml}${descHtml}${metaHtml}`;
+    const descHtml=`<span class="gdesc">${escapeHtml(game.awayFull||game.away)}<span class="vs">vs</span>${escapeHtml(game.homeFull||game.home)}</span>`;
+    info.innerHTML=`${timeHtml}${descHtml}`;
     block.appendChild(info);
-    // injury sub-row (optional)
-    if(m.injury){
-      const inj=document.createElement('div');inj.className='ginjury';
-      inj.textContent=m.injury;
-      block.appendChild(inj);
-    }
     // team rows
     game.teams.forEach(team=>{
       const row=document.createElement('div');row.className='trow-g';
