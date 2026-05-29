@@ -96,34 +96,6 @@ export const LEAGUES_LIST = [
   {sport:'NCAAF',name:'NCAAF – Regular Season'},{sport:'NCAAF',name:'NCAAF – Bowl Games'},
 ];
 
-// ─── GAME META (enriched info row) ──────────────────────────────────────────
-// Optional per-matchup meta. Keyed by "Away @ Home". Any/all fields optional.
-//   badge:     short tag ("Playoffs", "Reg Season"). Playoffs/Finals get
-//              teal-darker bg; others get orange.
-//   seedAway/seedHome: integer seeds (rendered as "#N" before team names).
-//   network:   broadcast network ("TNT", "Prime Video"). Italic after home.
-//   series:    series state ("OKC leads 2-1"). Orange-tinted pill on right.
-//   maxWager:  per-game wager cap. Rendered as "Max $X.XX" on the right.
-//   injury:    free-text injury note. Sub-row beneath info row in red italic.
-export const BS_GAME_META = {
-  'Los Angeles Lakers @ Oklahoma City Thunder': {
-    badge:'Playoffs', seedAway:5, seedHome:1, network:'TNT',
-    series:'OKC leads 2-1', maxWager:1000,
-    injury:'LAL: L. James (questionable)'
-  },
-  'New York Knicks @ Philadelphia 76ers': {
-    badge:'Playoffs', seedAway:3, seedHome:2, network:'ESPN',
-    series:'Tied 2-2', maxWager:1000
-  },
-  'San Antonio Spurs @ Minnesota Timberwolves': {
-    badge:'Reg Season', network:'NBA TV', maxWager:500
-  },
-};
-
-export function getGameMeta(g){
-  return BS_GAME_META[`${g.away} @ ${g.home}`] || {};
-}
-
 // ─── MUTABLE STATE ──────────────────────────────────────────────────────────
 // Single source of truth for everything that changes during a session.
 // localStorage initializers run at module-load (which happens once per page).
