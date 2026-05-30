@@ -162,7 +162,7 @@
 
    Rule of thumb (and `frontend-design`'s discipline applied to v4):
    - One-off layout (sidebar gap, header alignment) → utilities inline in HTML
-   - Repeated "I am a thing" components (.obtn, .gblock, .gbadge) → @apply here
+   - Repeated "I am a thing" components (.obtn, .gblock) → @apply here
    ──────────────────────────────────────────────────────────────────────────── */
 @layer components {
   /* ── disclaimer bar ── */
@@ -338,36 +338,6 @@
   }
   .gnotes {
     @apply text-[10px] text-bet-text-xs italic whitespace-nowrap;
-  }
-
-  /* ── enriched game info pieces ── */
-  .gbadge {
-    @apply font-display text-[10px] font-bold text-white bg-bet-emphasis px-1.5 py-px rounded-[2px] tracking-[0.5px] uppercase whitespace-nowrap;
-  }
-  .gbadge.alt { @apply bg-bet-accent; }
-  .gseed {
-    @apply font-display text-[10px] font-bold text-bet-text-sm bg-white border border-bet-border px-1 rounded-[2px] leading-[14px];
-  }
-  .gnet {
-    @apply text-[10px] text-bet-text-xs italic ml-1;
-  }
-  .ginfo-meta {
-    @apply flex items-center gap-2 whitespace-nowrap flex-shrink-0;
-  }
-  .gseries {
-    @apply font-display text-[10px] font-bold text-bet-accent-dk bg-bet-accent/10 border border-bet-accent/25 px-[5px] py-px rounded-[2px] tracking-[0.3px] uppercase;
-  }
-  .gmaxw {
-    @apply font-display text-[10px] font-semibold text-bet-text-sm pl-2 border-l border-bet-border;
-  }
-  .ginjury {
-    @apply bg-bet-red/5 border-b border-black/5 py-0.5 pr-2.5 pl-[60px] text-[10px] text-bet-red italic whitespace-nowrap overflow-hidden text-ellipsis;
-  }
-  .ginjury::before {
-    content: "\26A0  ";
-    font-style: normal;
-    font-weight: 700;
-    margin-right: 2px;
   }
 
   /* ── team rows ── */
