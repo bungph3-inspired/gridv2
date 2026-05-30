@@ -971,6 +971,12 @@ function showHome() {
   const bv = document.getElementById('board-view');
   if (hv) hv.classList.remove('hidden');
   if (bv) bv.classList.add('hidden');
+  // Greet the signed-in player before the tiles render so there's no flash of the placeholder.
+  const hdr = hv && hv.querySelector('.hv-hdr');
+  if (hdr) {
+    const player = (localStorage.getItem('bs_player') || '').trim();
+    hdr.innerHTML = player ? `Welcome back, ${escapeHtml(player)}` : 'Pick a sport';
+  }
   renderHomeTiles();
 }
 
