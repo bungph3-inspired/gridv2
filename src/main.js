@@ -115,7 +115,7 @@ function buildGameBlock(game,moved=new Map()){
   // Props-only leagues (e.g. "NBA Player Props") hide the game header + team
   // rows entirely — only the prop section renders below. The prop section's
   // own banner ("{date} — {away} @ {home} — Player Props") supplies enough
-  // matchup context, so we skip ginfo / ginjury / .trow-g rows on this view.
+  // matchup context, so we skip ginfo / .trow-g rows on this view.
   const propsOnly = /Player Props$/i.test(state.activeLeague || '');
   if (!propsOnly) {
     // Game info row — time + team names. Optional per-game meta (badges,
